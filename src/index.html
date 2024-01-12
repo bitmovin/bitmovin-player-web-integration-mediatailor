@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bitmovin MediaTailor Integration Test Page</title>
+
+    <link
+            rel="stylesheet"
+            href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+            integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+            crossorigin="anonymous"
+    />
+    <script
+            src="https://code.jquery.com/jquery-3.4.1.min.js"
+            integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+            crossorigin="anonymous"
+    ></script>
+    <script
+            src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"
+            integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl"
+            crossorigin="anonymous"
+    ></script>
+
+    <script type="text/javascript" src="js/bitmovin-player-mediatailor.js"></script>
+
+    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-core.js"></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-polyfill.js"
+    ></script>
+    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-style.js"></script>
+    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-xml.js"></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-advertising-core.js"
+    ></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-advertising-bitmovin.js"
+    ></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-mserenderer.js"
+    ></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-engine-bitmovin.js"
+    ></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-container-mp4.js"
+    ></script>
+    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-hls.js"></script>
+    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-dash.js"></script>
+    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-abr.js"></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-container-ts.js"
+    ></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-engine-native.js"
+    ></script>
+    <script
+            type="text/javascript"
+            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-serviceworker-client.js"
+    ></script>
+    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-tizen.js"></script>
+    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-webos.js"></script>
+
+    <script type="text/javascript" src="//cdn.bitmovin.com/player/web/8/bitmovinplayer-ui.js"></script>
+    <link rel="stylesheet" href="//cdn.bitmovin.com/player/web/8/bitmovinplayer-ui.css" />
+    <style>
+        .player-wrapper {
+            margin: 20px auto;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+        }
+
+        .meta-info {
+            text-align: center;
+        }
+
+        .row {
+            margin: 20px 0;
+        }
+        #companionDiv {
+            width: 300px;
+            height: 250px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="meta-info">
+        <div class="row">
+            <div class="col-12">
+                <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                    <label class="btn btn-outline-secondary">
+                        <input type="radio" name="options" id="option-close" autocomplete="off" checked />Close Player
+                    </label>
+                    <label class="btn btn-outline-secondary active">
+                        <input type="radio" name="options" id="option-vod" autocomplete="off" checked />MediaTailor VOD
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <div class="input-group mb-3">
+                    <input
+                            id="stream-stream-url"
+                            type="text"
+                            class="form-control"
+                            placeholder="Custom MediaTailor Session Init URL"
+                            aria-label="Custom MediaTailor Session Init URL"
+                    />
+                    <select class="custom-select col-2" id="stream-type-select">
+                        <option value="1">VoD</option>
+                        <option value="2">Live</option>
+                        <option value="3">None</option>
+                    </select>
+                    <div class="input-group-append">
+                        <button id="load-custom-stream" class="btn btn-outline-secondary" type="button">Load</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="content">
+        <div class="player-wrapper">
+            <div id="player"></div>
+        </div>
+        <div class="row">
+            <div id="companionDiv"></div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    var mtPlayer;
+    var uiManager;
+    var closePlayerButton = $('#option-close').parent();
+    var vodButton = $('#option-vod').parent();
+    var customStreamButton = $('#load-custom-stream');
+    var customStreamTypeSelect = $('#stream-type-select');
+
+    closePlayerButton.on('click', function () {
+        closePlayerButton.button('toggle');
+        deselectCustomLoadButton();
+
+        mtPlayer.unload();
+    });
+
+    vodButton.on('click', function () {
+        vodButton.button('toggle');
+        deselectCustomLoadButton();
+
+        mtPlayer.unload();
+        mtPlayer.load(vodSource).then(() => {
+
+        });
+    });
+
+    customStreamButton.on('click', function () {
+        $(customStreamButton).addClass('active');
+
+        // remove active button of group
+        $($('.btn-group-toggle .active')[0]).removeClass('active');
+        var customSource = {
+            title: 'Custom Stream',
+            sessionInitUrl: $('#stream-stream-url').val(),
+        };
+
+        if (customStreamTypeSelect.val() === '1') {
+            customSource.assetType = bitmovin.player.ads.mediatailor.MtAssetType.VOD;
+        } else if (customStreamTypeSelect.val() === '2') {
+            customSource.assetType = bitmovin.player.ads.mediatailor.MtAssetType.LINEAR;
+        }
+
+        mtPlayer.unload();
+        mtPlayer.load(customSource);
+    });
+
+    function deselectCustomLoadButton() {
+        $(customStreamButton).removeClass('active');
+    }
+
+    var vodSource = {
+        title: 'VOD Stream',
+        assetType: bitmovin.player.ads.mediatailor.MtAssetType.VOD,
+        sessionInitUrl: "https://8e5c8b8ea1da48c1abfc4804f46d2c2d.mediatailor.us-east-2.amazonaws.com/v1/session/e43236c6c3da2f9adba09ce309a47dcec2045396/TestCampaign1_HLS/master.m3u8",
+        // or sessionInitUrl can by type of MtSessionResponse
+        //sessionInitUrl: {
+        //    manifestUrl: 'https://8e5c8b8ea1da48c1abfc4804f46d2c2d.mediatailor.us-east-2.amazonaws.com/v1/master/e43236c6c3da2f9adba09ce309a47dcec2045396/TestCampaign1_HLS/master.m3u8?aws.sessionId=c18bc752-c5b2-49a8-be62-7843931f83e8',
+        //    trackingUrl: 'https://8e5c8b8ea1da48c1abfc4804f46d2c2d.mediatailor.us-east-2.amazonaws.com/v1/tracking/e43236c6c3da2f9adba09ce309a47dcec2045396/TestCampaign1_HLS/c18bc752-c5b2-49a8-be62-7843931f83e8'
+        //}
+    };
+
+    var conf = {
+        key: '18ca6ad5-9768-4129-bdf6-17685e0d14d2',
+        playback: {
+            muted: false,
+            autoplay: true,
+        },
+        logs: {
+            level: 'info',
+            //bitmovin: !isValidationMode,
+        },
+        ui: false,
+        tweaks: {
+            enable_seek_for_live: true,
+            resume_live_content_at_previous_position_after_ad_break: true,
+            //FAIRPLAY_IGNORE_DUPLICATE_INIT_DATA_KEY_ERRORS: true,
+        },
+    };
+
+    function log(message) {
+        if (isValidationMode) return;
+        console.log(message);
+    }
+
+    function debug(message) {
+        if (isValidationMode) return;
+        console.debug(message);
+    }
+
+    function unregisterAllServiceWorker() {
+        if (navigator.serviceWorker) {
+            return navigator.serviceWorker.getRegistrations().then((registrations) => {
+                return Promise.all(registrations.map((registration) => registration.unregister())).then(() => {
+                    // ensure Promise<void> is returned
+                });
+            });
+        } else {
+            return Promise.resolve();
+        }
+    }
+
+    var unregisterServiceWorkersPromise = unregisterAllServiceWorker();
+
+    unregisterServiceWorkersPromise.then(() => {
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['polyfill'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['style'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['xml'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['advertising-core'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['advertising-bitmovin'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['engine-bitmovin'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['mserenderer'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['hls'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['dash'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['abr'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['container-ts'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['container-mp4'].default);
+        bitmovin.player.core.Player.addModule(window.bitmovin.player['engine-native'].default);
+
+        var mtConfig = {
+            debug: true,
+        }
+
+        var playerContainer = document.getElementById('player');
+        mtPlayer = new bitmovin.player.ads.mediatailor.BitmovinMediaTailorPlayer(
+            bitmovin.player.core.Player,
+            playerContainer,
+            conf,
+            mtConfig
+        )
+        uiManager = new bitmovin.playerui.UIFactory.buildDefaultUI(mtPlayer);
+
+        mtPlayer.on('error', function(e){
+            console.log(e);
+        });
+
+        mtPlayer.on('adbreakstarted', function(e) {
+            console.log(e);
+        });
+
+        mtPlayer.on('adquartile', function (e) {
+            console.log(e);
+        })
+
+        mtPlayer.on('adstarted', function(e) {
+            console.log(e);
+            if (e.ad && e.ad.companionAds && e.ad.companionAds.length>0) {
+                var linkElement = document.createElement('a');
+                var companionAd = e.ad.companionAds[0];
+                linkElement.href = companionAd.companionClickThrough;
+                linkElement.target = '_blank';
+                linkElement.onclick = () => {
+                    companionAd.fireCompanionClickTrackingEvent().then(responseCode => {
+                        console.log(`companionAdClickTrackingEvent responseCode = ${responseCode}`);
+                    });
+                }
+
+                var img = new Image(companionAd.width, companionAd.height);
+                img.src = companionAd.staticResource;
+                linkElement.appendChild(img);
+
+                var observer = new MutationObserver(function(mutations) {
+                    if (document.contains(linkElement)) {
+                        console.log("It's in the DOM!");
+                        companionAd.fireCompanionAdEvent("creativeView")
+                        observer.disconnect();
+                    }
+                });
+                observer.observe(document, {attributes: false, childList: true, characterData: false, subtree:true});
+
+                document.getElementById('companionDiv').appendChild(linkElement);
+            }
+        });
+
+        mtPlayer.on('adbreakfinished', function(e) {
+            console.log(e);
+            var companion = document.getElementById('companionDiv');
+            while (companion.firstChild) {
+                companion.removeChild(companion.firstChild);
+            }
+        });
+
+        mtPlayer.on('adfinished', function(e) {
+            console.log(e);
+        });
+
+        mtPlayer.on('adskipped', function(e) {
+            console.log(e);
+        });
+
+        mtPlayer.on('playing', function(e) {
+            console.log('mcarriga html playing event');
+        });
+
+        mtPlayer.on('admanifestloaded', function(e) {
+            console.log('mcarriga admanifestloaded');
+            console.log(e);
+            mtPlayer.ads.list().forEach(adBreak => {
+                console.log(`adList ${adBreak.scheduleTime}`);
+                uiManager.addTimelineMarker({ time: adBreak.scheduleTime, title: 'Ad Break' });
+            });
+        })
+    });
+
+
+</script>
+
+</body>
+</html>
