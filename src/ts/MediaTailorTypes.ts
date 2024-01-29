@@ -353,7 +353,7 @@ const playerOpMetrics = ["mute", "unmute", "pause", "resume", "rewind", "skip", 
 export type PlayerOperationMetric = (typeof playerOpMetrics[number]);
 export const isPlayerOperationMetric = (x: any): x is PlayerOperationMetric => playerOpMetrics.includes(x);
 
-const linearAdMetrics = ["loaded", "start", "firstQuartile", "midpoint", "thirdQuartile", "complete", "otherAdInteraction", "progress", "offset", "closeLinear"] as const;
+const linearAdMetrics = ["loaded", "start", "firstQuartile", "midpoint", "thirdQuartile", "complete", "otherAdInteraction", "progress", "offset", "closeLinear", "acceptInvitationLinear", "impression"] as const;
 export type LinearAdMetric = (typeof linearAdMetrics[number]);
 export const isLinearAdMetric = (x: any): x is LinearAdMetric => linearAdMetrics.includes(x);
 

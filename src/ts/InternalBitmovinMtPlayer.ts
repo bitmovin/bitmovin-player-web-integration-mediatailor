@@ -14,9 +14,9 @@ import {
     PlayerEvent,
     PlayerEventBase,
     PlayerEventCallback,
-    SeekEvent,
+    SeekEvent, SegmentPlaybackEvent,
     SourceConfig,
-    TimeChangedEvent,
+    TimeChangedEvent, TimeMode,
     UserInteractionEvent,
     VastAdExtension
 } from "bitmovin-player";
@@ -62,6 +62,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     private playerPolicy: BitmovinMediaTailorPlayerPolicy;
     private cachedSeekTarget: number;
     private adStartedTimestamp: number;
+    private _sessionResponse: MtSessionResponse;
     private _session: MediaTailorSession;
 
     private lastTimeChangedTime = 0;
@@ -280,6 +281,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
 
         this.player.on(PlayerEvent.Muted, this.onMuted);
         this.player.on(PlayerEvent.Unmuted, this.onUnmuted);
+        this.player.on(PlayerEvent.SegmentPlayback, this.onSegmentPlayback);
 
         // To support ads in live streams we need to track metadata events
         //this.player.on(PlayerEvent.Metadata, this.onMetaData);
@@ -422,6 +424,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
             this.registerPlayerEvents();
             this.fetchMtSession(source)
                 .then(sessionResponse => {
+                    this._sessionResponse = sessionResponse;
                     let manifestType = this.getManifestType(sessionResponse.manifestUrl);
                     if (manifestType === null) throw new Error("Unable to determine Manifest Type")
                     const clonedSource: SourceConfig = manifestType === 'hls'
@@ -455,6 +458,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                         .then(() => {
                             let trackingPromise = this.fetchMtTracking(sessionResponse);
                             trackingPromise.then((tracking) => {
+                                console.log('mcarriga tracking response:')
+                                console.log(tracking);
                                 this.session = new MediaTailorSession(tracking, this.player, this.playerPolicy);
                                 this.bindMediaTailorEvent();
                                 this.session.onAdManifestLoaded();
@@ -687,13 +692,13 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         });
     };
 
-    getCurrentTime(): number {
+    getCurrentTime(mode?: TimeMode): number {
         if (this.isAdActive()) {
             // return currentTime in AdBreak
-            const currentAdPosition = this.player.getCurrentTime();
+            const currentAdPosition = this.player.getCurrentTime(mode);
             return currentAdPosition - this.getAdStartTime(this.getCurrentAd());
         }
-        return this.toMagicTime(this.player.getCurrentTime());
+        return this.toMagicTime(this.player.getCurrentTime(mode));
     }
 
     // Needed in BitmovinMediaTailorPlayerPolicy.ts so keep it here
@@ -743,6 +748,15 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         Logger.log('[BitmovinMediaTailorPlayer] - onVolumeChange(muted=false)');
         this.fireEvent(event);
     };
+
+    private onSegmentPlayback = (event: SegmentPlaybackEvent) => {
+        if (this.player.isLive() && event.mimeType.includes('video')) {
+            this.fetchMtTracking(this._sessionResponse).then(response => {
+                if(this.session) this.session.liveUpdateTracking(response);
+            })
+        }
+
+    }
 
     private resetState(): void {
         // reset all local attributes

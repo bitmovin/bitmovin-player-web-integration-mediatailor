@@ -34,7 +34,7 @@ import {
     StreamType,
     SupportedTechnologyMode,
     Technology,
-    Thumbnail,
+    Thumbnail, TimeMode,
     TimeRange,
     VideoQuality,
     ViewMode,
@@ -315,8 +315,8 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.getContainer();
     }
 
-    getCurrentTime(caller?: string): number {
-        return this.player.getCurrentTime();
+    getCurrentTime(mode?: TimeMode): number {
+        return this.player.getCurrentTime(mode);
     }
 
     getDownloadedAudioData(): DownloadedAudioData {

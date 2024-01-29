@@ -37,7 +37,9 @@ This integration completely encapsulates the usage of MediaTailor. After creatin
   - [x] Linear Ads :white_check_mark:
   - [x] Companion Ad Rendering :white_check_mark:
   - [x] Linear Video ClickThrough :white_check_mark:
-- [ ] Live(Channel Assembly) :x:
+- [x] HLS Live(Channel Assembly) :white_check_mark:
+  - [x] HLS Live Streams :white_check_mark:
+  - [ ] DASH Live Streams (possibly could work, but untested) :x:
 ### Beaconing:
 - [x] Advert TrackingEvents
   - [x] Player Operation Events :white_check_mark:

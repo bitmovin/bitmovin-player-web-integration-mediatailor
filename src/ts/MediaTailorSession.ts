@@ -21,12 +21,14 @@ import {
 } from "./MediaTailorTypes";
 import {
     AdClickedEvent,
-    AdEvent, ErrorEvent,
+    AdEvent,
+    ErrorEvent,
     PlaybackEvent,
     PlayerAPI,
     PlayerEvent,
     PlayerResizedEvent,
     TimeChangedEvent,
+    TimeMode,
     UserInteractionEvent,
     ViewMode,
     ViewModeChangedEvent
@@ -60,7 +62,7 @@ export class MediaTailorSession {
 
         let sessionTrackingResponse: IMediaTailorSessionTrackingResponse = responseData as IMediaTailorSessionTrackingResponse;
         this.trackingResponse = new MediaTailorSessionTrackingResponse(sessionTrackingResponse);
-        this.trackingResponse.avails.sort((availA, availB) => availA.startTimeInSeconds - availB.startTimeInSeconds)
+        this.trackingResponse.avails.sort((availA, availB) => availA.startTimeInSeconds - availB.startTimeInSeconds);
         this.player = player;
         this._policy = policy;
         player.on(PlayerEvent.TimeChanged, this.onTimeChanged);
@@ -75,6 +77,30 @@ export class MediaTailorSession {
         player.on(PlayerEvent.Error, this.onError);
         player.on(PlayerEvent.AdError, this.onError);
         MediaTailorSession.currentSession = this;
+    }
+
+    public liveUpdateTracking(responseData: any) {
+        let updatedSessionTrackingResponse: IMediaTailorSessionTrackingResponse = responseData as IMediaTailorSessionTrackingResponse;
+        let updatedTrackingResponse: MediaTailorSessionTrackingResponse = (updatedSessionTrackingResponse)? new MediaTailorSessionTrackingResponse(updatedSessionTrackingResponse) : undefined;
+        if (updatedTrackingResponse) {
+            if (updatedTrackingResponse.nextToken) this.trackingResponse.nextToken = updatedTrackingResponse.nextToken
+            updatedTrackingResponse.avails.forEach(newAvail => {
+                let some = this.trackingResponse.avails.some(avail => avail.startTimeInSeconds === newAvail.startTimeInSeconds);
+                if (!some) { // Ad New AdBreak
+                    this.trackingResponse.avails.push(newAvail);
+                    this.trackingResponse.avails.sort((availA, availB) => availA.startTimeInSeconds - availB.startTimeInSeconds);
+                } else { // Found issue with MediaTailor Tracking API for Lineaer Streams(see below)
+
+                    // Found issue with MediaTailor Tracking API for Linear Streams where not all Tracking events
+                    // for an Ad will always appear in first couple of responses when a new Avail is added.
+                    // Sometimes new TrackingEvents for Ads are added in subsequent responses from Tracking API.
+
+                    // Update AdBreak in case new TrackingEvents are available due to the above-mentioned issue
+                    let existingMatchedBreak = this.trackingResponse.avails.find(avail => avail.startTimeInSeconds === newAvail.startTimeInSeconds);
+                    if (existingMatchedBreak) existingMatchedBreak = newAvail;
+                }
+            });
+        }
     }
 
     public shutdown(): void {
@@ -113,11 +139,33 @@ export class MediaTailorSession {
         this._trackingResponse = value;
     }
 
+    private lookForNewAdBreak(updatedTime: number) {
+        this._activeAdBreak = this.trackingResponse.avails.find(avail => updatedTime >= avail.startTimeInSeconds
+            && (updatedTime <= avail.startTimeInSeconds + avail.durationInSeconds));
+
+        if (this._activeAdBreak && !this._activeAdBreak.adBreakStartEventFired) {
+            this._activeAdBreak.adBreakStartEventFired = true;
+            this.fireAdBreakStart(this._activeAdBreak);
+            this._activeAdBreak.fireAdBreakEvent("breakStart");
+        } else if (this._activeAdBreak && this._activeAdBreak.adBreakEndEventFired) {
+            let seekTarget = this._activeAdBreak.startTimeInSeconds + this._activeAdBreak.durationInSeconds;
+            this._activeAdBreak = undefined;
+            if (this._policy.shouldAutomaticallySkipOverWatchedAdBreaks) this.player.seek(seekTarget);
+        }
+        this.__lastActiveAdBreakEndTime = this._activeAdBreak? (this._activeAdBreak.startTimeInSeconds + this._activeAdBreak.durationInSeconds - 0.01) : undefined;
+    }
+
     onTimeChanged = (event: TimeChangedEvent) => {
-        this.getActiveAd()?.fireLinearEventBeaconsByTime(event.time); // Called once up-front because 'complete' TrackingEvents will not fire after searching for new Ad
+        let updatedTime = (this.player.isLive())? this.player.getCurrentTime(TimeMode.RelativeTime) : event.time;
+        this.getActiveAd()?.fireLinearEventBeaconsByTime(updatedTime); // Called once up-front because 'complete' TrackingEvents will not fire after searching for new Ad
+
+        // Look for new AdBreak if no __lastActiveAdBreakEndTime
+        if (!this.__lastActiveAdBreakEndTime) {
+            this.lookForNewAdBreak(updatedTime);
+        }
 
         // Look for new Ad
-        if (!this.__lastActiveAdEndTime || (event.time >= this.__lastActiveAdEndTime)) { // Potentially New Ad started
+        if (!this.__lastActiveAdEndTime || (updatedTime >= this.__lastActiveAdEndTime)) { // Potentially New Ad started
             // fire AdEnd if necessary
             if (this._activeAd && !this._activeAd.adEndEventFired) {
                 this._activeAd.adEndEventFired = true;
@@ -125,8 +173,8 @@ export class MediaTailorSession {
                 this._activeAd = undefined;
             }
 
-            let possibleAd = this._activeAdBreak? this._activeAdBreak?.ads?.find(ad => event.time >= ad.startTimeInSeconds
-                && (event.time <= ad.startTimeInSeconds + ad.durationInSeconds)) : undefined;
+            let possibleAd = this._activeAdBreak? this._activeAdBreak?.ads?.find(ad => updatedTime >= ad.startTimeInSeconds
+                && (updatedTime <= ad.startTimeInSeconds + ad.durationInSeconds)) : undefined;
 
             this._activeAd = (possibleAd?.adEndEventFired)? undefined : possibleAd
 
@@ -138,8 +186,9 @@ export class MediaTailorSession {
             this.__lastActiveAdEndTime = this._activeAd? (this._activeAd.startTimeInSeconds + this._activeAd.durationInSeconds - 0.1) : undefined; // reset lastActiveAdEndTime
         }
 
-        // Look for new AdBreak
-        if (!this.__lastActiveAdBreakEndTime || (event.time >= this.__lastActiveAdBreakEndTime)){ // potentially new adbreak started
+        // Look for new AdBreak if time is greater than __lastActiveAdBreakEndTime
+        if (updatedTime >= this.__lastActiveAdBreakEndTime){ // potentially new adbreak started
+
             // fire AdBreakEnd if necessary
             if(this._activeAdBreak && !this._activeAdBreak.adBreakEndEventFired){
                 this._activeAdBreak.adBreakEndEventFired = true;
@@ -148,24 +197,10 @@ export class MediaTailorSession {
                 this._activeAdBreak = undefined;
             }
 
-
-            this._activeAdBreak = this.trackingResponse.avails.find(avail => event.time >= avail.startTimeInSeconds
-                && (event.time <= avail.startTimeInSeconds + avail.durationInSeconds));
-
-            if (this._activeAdBreak && !this._activeAdBreak.adBreakStartEventFired) {
-                this._activeAdBreak.adBreakStartEventFired = true;
-                this.fireAdBreakStart(this._activeAdBreak);
-                this._activeAdBreak.fireAdBreakEvent("breakStart");
-            } else if (this._activeAdBreak && this._activeAdBreak.adBreakEndEventFired) {
-                let seekTarget = this._activeAdBreak.startTimeInSeconds + this._activeAdBreak.durationInSeconds;
-                this._activeAdBreak = undefined;
-                if (this._policy.shouldAutomaticallySkipOverWatchedAdBreaks) this.player.seek(seekTarget);
-            }
-            this.__lastActiveAdBreakEndTime = this._activeAdBreak? (this._activeAdBreak.startTimeInSeconds + this._activeAdBreak.durationInSeconds - 0.01) : undefined;
+            this.lookForNewAdBreak(updatedTime);
         }
 
-
-        this.getActiveAd()?.fireLinearEventBeaconsByTime(event.time); // Called again because new Ad could be found and therefore new beacons to fire
+        this.getActiveAd()?.fireLinearEventBeaconsByTime(updatedTime); // Called again because new Ad could be found and therefore new beacons to fire
     }
 
     private fireAdStart(ad: MtAd) {
@@ -540,9 +575,11 @@ export class MtAd implements IMtAd {
 
     public fireLinearEventBeaconsByTime(time: number) {
         let events = this.trackingEvents.filter(trackingEvent => isLinearAdMetric(trackingEvent.eventType) && !trackingEvent.trackingEventFired)
-            .filter(trackingEvent => time >= trackingEvent.startTimeInSeconds && time <= trackingEvent.startTimeInSeconds + 0.3); // Using 0.3 as buffer
+            .filter(trackingEvent => time >= (trackingEvent.startTimeInSeconds - 0.1) && time <= trackingEvent.startTimeInSeconds + 0.3); // Using 0.3 as buffer
 
+        if (events && events.length>0) console.log(`mcarriga fireLinearEventBeaconsByTime got ${events.length}`)
         events?.forEach(event => {
+
             if (event.eventType !== "closeLinear") event.fireTrackingEvent(); //TODO add "closeLinear" and implement it's use
         });
 

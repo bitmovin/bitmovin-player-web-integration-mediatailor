@@ -101,6 +101,9 @@
                     <label class="btn btn-outline-secondary active">
                         <input type="radio" name="options" id="option-vod" autocomplete="off" checked />MediaTailor VOD
                     </label>
+                    <label class="btn btn-outline-secondary active">
+                        <input type="radio" name="options" id="option-linear" autocomplete="off" checked />MediaTailor Linear
+                    </label>
                 </div>
             </div>
         </div>
@@ -140,6 +143,7 @@
     var uiManager;
     var closePlayerButton = $('#option-close').parent();
     var vodButton = $('#option-vod').parent();
+    var linearButton = $('#option-linear').parent();
     var customStreamButton = $('#load-custom-stream');
     var customStreamTypeSelect = $('#stream-type-select');
 
@@ -156,9 +160,19 @@
 
         mtPlayer.unload();
         mtPlayer.load(vodSource).then(() => {
-
+            console.log('VoD Source Loaded');
         });
     });
+
+    linearButton.on('click', function () {
+        linearButton.button('toggle');
+        deselectCustomLoadButton();
+
+        mtPlayer.unload();
+        mtPlayer.load(linearSource).then(() => {
+            console.log('Linear Source Loaded');
+        });
+    })
 
     customStreamButton.on('click', function () {
         $(customStreamButton).addClass('active');
@@ -194,6 +208,12 @@
         //    trackingUrl: 'https://8e5c8b8ea1da48c1abfc4804f46d2c2d.mediatailor.us-east-2.amazonaws.com/v1/tracking/e43236c6c3da2f9adba09ce309a47dcec2045396/TestCampaign1_HLS/c18bc752-c5b2-49a8-be62-7843931f83e8'
         //}
     };
+
+    var linearSource = {
+        title: 'Linear Stream',
+        assetType: bitmovin.player.ads.mediatailor.MtAssetType.LINEAR,
+        sessionInitUrl: 'https://ab920977096d419ca8c9c3895084dacf.mediatailor.us-east-2.amazonaws.com/v1/session/e43236c6c3da2f9adba09ce309a47dcec2045396/LiveCampaign/index.m3u8'
+    }
 
     var conf = {
         key: '18ca6ad5-9768-4129-bdf6-17685e0d14d2',
