@@ -60,7 +60,7 @@ export class MediaTailorSession {
 
     constructor(responseData: any, player: PlayerAPI, policy: BitmovinMediaTailorPlayerPolicy) {
 
-        let sessionTrackingResponse: IMediaTailorSessionTrackingResponse = responseData as IMediaTailorSessionTrackingResponse;
+        const sessionTrackingResponse: IMediaTailorSessionTrackingResponse = responseData as IMediaTailorSessionTrackingResponse;
         this.trackingResponse = new MediaTailorSessionTrackingResponse(sessionTrackingResponse);
         this.trackingResponse.avails.sort((availA, availB) => availA.startTimeInSeconds - availB.startTimeInSeconds);
         this.player = player;
@@ -80,12 +80,12 @@ export class MediaTailorSession {
     }
 
     public liveUpdateTracking(responseData: any) {
-        let updatedSessionTrackingResponse: IMediaTailorSessionTrackingResponse = responseData as IMediaTailorSessionTrackingResponse;
-        let updatedTrackingResponse: MediaTailorSessionTrackingResponse = (updatedSessionTrackingResponse)? new MediaTailorSessionTrackingResponse(updatedSessionTrackingResponse) : undefined;
+        const updatedSessionTrackingResponse: IMediaTailorSessionTrackingResponse = responseData as IMediaTailorSessionTrackingResponse;
+        const updatedTrackingResponse: MediaTailorSessionTrackingResponse = (updatedSessionTrackingResponse)? new MediaTailorSessionTrackingResponse(updatedSessionTrackingResponse) : undefined;
         if (updatedTrackingResponse) {
             if (updatedTrackingResponse.nextToken) this.trackingResponse.nextToken = updatedTrackingResponse.nextToken
             updatedTrackingResponse.avails.forEach(newAvail => {
-                let some = this.trackingResponse.avails.some(avail => avail.startTimeInSeconds === newAvail.startTimeInSeconds);
+                const some = this.trackingResponse.avails.some(avail => avail.startTimeInSeconds === newAvail.startTimeInSeconds);
                 if (!some) { // Ad New AdBreak
                     this.trackingResponse.avails.push(newAvail);
                     this.trackingResponse.avails.sort((availA, availB) => availA.startTimeInSeconds - availB.startTimeInSeconds);
@@ -148,7 +148,7 @@ export class MediaTailorSession {
             this.fireAdBreakStart(this._activeAdBreak);
             this._activeAdBreak.fireAdBreakEvent("breakStart");
         } else if (this._activeAdBreak && this._activeAdBreak.adBreakEndEventFired) {
-            let seekTarget = this._activeAdBreak.startTimeInSeconds + this._activeAdBreak.durationInSeconds;
+            const seekTarget = this._activeAdBreak.startTimeInSeconds + this._activeAdBreak.durationInSeconds;
             this._activeAdBreak = undefined;
             if (this._policy.shouldAutomaticallySkipOverWatchedAdBreaks) this.player.seek(seekTarget);
         }
@@ -156,7 +156,7 @@ export class MediaTailorSession {
     }
 
     onTimeChanged = (event: TimeChangedEvent) => {
-        let updatedTime = (this.player.isLive())? this.player.getCurrentTime(TimeMode.RelativeTime) : event.time;
+        const updatedTime = (this.player.isLive())? this.player.getCurrentTime(TimeMode.RelativeTime) : event.time;
         this.getActiveAd()?.fireLinearEventBeaconsByTime(updatedTime); // Called once up-front because 'complete' TrackingEvents will not fire after searching for new Ad
 
         // Look for new AdBreak if no __lastActiveAdBreakEndTime
@@ -173,7 +173,7 @@ export class MediaTailorSession {
                 this._activeAd = undefined;
             }
 
-            let possibleAd = this._activeAdBreak? this._activeAdBreak?.ads?.find(ad => updatedTime >= ad.startTimeInSeconds
+            const possibleAd = this._activeAdBreak? this._activeAdBreak?.ads?.find(ad => updatedTime >= ad.startTimeInSeconds
                 && (updatedTime <= ad.startTimeInSeconds + ad.durationInSeconds)) : undefined;
 
             this._activeAd = (possibleAd?.adEndEventFired)? undefined : possibleAd
@@ -269,8 +269,8 @@ export class MediaTailorSession {
 
     onPlayerResize = (event: PlayerResizedEvent) => {
         if (this._playerHeight && this._playerWidth) {
-            let newWidth = parseInt(event.width);
-            let newHeight = parseInt(event.height);
+            const newWidth = parseInt(event.width);
+            const newHeight = parseInt(event.height);
 
             if (newHeight < this._playerHeight || newWidth < this._playerWidth) {
                 this.getActiveAd()?.firePlayerOperationEventBeacon("playerCollapse");
@@ -297,7 +297,7 @@ export class MediaTailorSession {
             return this._totalDurationAllAvails;
         } else {
             let total = 0;
-            for (let avail of this.trackingResponse.avails) {
+            for (const avail of this.trackingResponse.avails) {
                 total = total + avail.durationInSeconds;
             }
             this._totalDurationAllAvails = total;
@@ -309,10 +309,10 @@ export class MediaTailorSession {
         if (this._totalDurationMinusAds) {
             return this._totalDurationMinusAds;
         } else {
-            let allAdDur = this.getTotalDurationOfAdAvails();
-            let contentDur = this.getStitchedContentDuration();
+            const allAdDur = this.getTotalDurationOfAdAvails();
+            const contentDur = this.getStitchedContentDuration();
             this._totalDurationMinusAds = contentDur - allAdDur;
-            return this._totalDurationMinusAds;;
+            return this._totalDurationMinusAds;
         }
     }
 
@@ -321,14 +321,14 @@ export class MediaTailorSession {
             return this._totalStitchedDuration;
         } else {
             this._totalStitchedDuration = this.player.getDuration();
-            return this._totalStitchedDuration;;
+            return this._totalStitchedDuration;
         }
     }
 
     public getPlayheadForContentPosition(seekTarget: number, issuer:string = null): number {
         let adBreakTime = 0;
         this.trackingResponse.avails.forEach(avail => {
-            let adjustedTarget = seekTarget + adBreakTime;
+            const adjustedTarget = seekTarget + adBreakTime;
             if (avail.startTimeInSeconds <= adjustedTarget) { // AdBreak has finished 22 <= 13 + 10
                 adBreakTime = adBreakTime + avail.durationInSeconds;
             }
@@ -337,14 +337,14 @@ export class MediaTailorSession {
     }
 
     public getContentPositionForPlayhead(seekTarget?: number, issuer:string = null): number {
-        let timeToUse = (seekTarget !== undefined || seekTarget !== null)?  seekTarget : this.player.getCurrentTime();
+        const timeToUse = (seekTarget !== undefined || seekTarget !== null)?  seekTarget : this.player.getCurrentTime();
 
         let currentContentOnlyTime = timeToUse;
         this.trackingResponse.avails.forEach(avail => {
             if ((avail.startTimeInSeconds + avail.durationInSeconds) <= timeToUse) { // AdBreak has already finished
                 currentContentOnlyTime = currentContentOnlyTime - avail.durationInSeconds;
             } else if (avail.startTimeInSeconds <= timeToUse && (avail.startTimeInSeconds + avail.durationInSeconds) > timeToUse ) { // In an adBreak. return time after ad break finishes
-                let secondsOfAdBreakWatchedSoFar = timeToUse - avail.startTimeInSeconds;
+                const secondsOfAdBreakWatchedSoFar = timeToUse - avail.startTimeInSeconds;
                 currentContentOnlyTime = currentContentOnlyTime - secondsOfAdBreakWatchedSoFar;
             }
         });
@@ -553,16 +553,16 @@ export class MtAd implements IMtAd {
     }
 
     private findClickThroughs() {
-        let clickThrough = this.trackingEvents?.find(trackingEvent => trackingEvent.eventType === "clickThrough");
+        const clickThrough = this.trackingEvents?.find(trackingEvent => trackingEvent.eventType === "clickThrough");
         if (clickThrough) {
             this.clickThroughUrl = (clickThrough.beaconUrls && clickThrough.beaconUrls.length > 0)? clickThrough.beaconUrls[0] : null;
             if (this.clickThroughUrl) {
-                let maybeClickTracking = this.trackingEvents?.filter(trackingEvent => trackingEvent.eventType === "clickTracking");
+                const maybeClickTracking = this.trackingEvents?.filter(trackingEvent => trackingEvent.eventType === "clickTracking");
                 maybeClickTracking.forEach(clicktracking => {
                     if (clicktracking.beaconUrls && clicktracking.beaconUrls.length> 0) this.clickTrackingUrls.push(...clicktracking.beaconUrls);
                 });
 
-                let maybeCustomClickTracking = this.trackingEvents?.filter(trackingEvent => trackingEvent.eventType === "customClick");
+                const maybeCustomClickTracking = this.trackingEvents?.filter(trackingEvent => trackingEvent.eventType === "customClick");
                 maybeCustomClickTracking.forEach(customClick => {
                     if(customClick.beaconUrls && customClick.beaconUrls.length > 0) this.customClickTrackingUrls.push(...customClick.beaconUrls)
                 })
@@ -574,7 +574,7 @@ export class MtAd implements IMtAd {
     }
 
     public fireLinearEventBeaconsByTime(time: number) {
-        let events = this.trackingEvents.filter(trackingEvent => isLinearAdMetric(trackingEvent.eventType) && !trackingEvent.trackingEventFired)
+        const events = this.trackingEvents.filter(trackingEvent => isLinearAdMetric(trackingEvent.eventType) && !trackingEvent.trackingEventFired)
             .filter(trackingEvent => time >= (trackingEvent.startTimeInSeconds - 0.1) && time <= trackingEvent.startTimeInSeconds + 0.3); // Using 0.3 as buffer
 
         if (events && events.length>0) console.log(`mcarriga fireLinearEventBeaconsByTime got ${events.length}`)
@@ -586,7 +586,7 @@ export class MtAd implements IMtAd {
     }
 
     public fireLinearClickEventBeacon(clickMetric: LinearAdClickMetric) {
-        let events = this.trackingEvents.filter(trackingEvent => isLinearClickMetric(trackingEvent.eventType));
+        const events = this.trackingEvents.filter(trackingEvent => isLinearClickMetric(trackingEvent.eventType));
         let eventsToFire: TrackingEvent[];
         switch (clickMetric) {
             case "clickThrough":
@@ -604,7 +604,7 @@ export class MtAd implements IMtAd {
     }
 
     public firePlayerOperationEventBeacon(playerOperation: PlayerOperationMetric) {
-        let playerEvents = this.trackingEvents.filter(trackingEvent => isPlayerOperationMetric(trackingEvent.eventType));
+        const playerEvents = this.trackingEvents.filter(trackingEvent => isPlayerOperationMetric(trackingEvent.eventType));
         let eventsToFire: TrackingEvent[];
         switch (playerOperation){
             case "optional":
@@ -709,7 +709,7 @@ export class AdAvail implements IAdAvail {
     }
 
     public fireAdBreakEvent(clickMetric: 'breakStart' | 'breakEnd' | 'error') {
-        let events = this.adBreakTrackingEvents.filter(trackingEvent => ['breakStart', 'breakEnd',  'error'].includes(trackingEvent.eventType));
+        const events = this.adBreakTrackingEvents.filter(trackingEvent => ['breakStart', 'breakEnd',  'error'].includes(trackingEvent.eventType));
         let eventsToFire: AdBreakTrackingEvent[];
         switch (clickMetric) {
             case "error":

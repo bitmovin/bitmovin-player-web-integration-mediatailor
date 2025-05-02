@@ -207,7 +207,7 @@ export class MediaTailorCompanionAd implements IMediaTailorCompanionAd {
         this.fireCompanionClickTrackingEvent = async(): Promise<number> => {
             if (this.companionClickTracking && this.companionClickTracking != '') {
                 try {
-                    let response = await axios.get(this.companionClickTracking);
+                    const response = await axios.get(this.companionClickTracking);
                     Logger.log(`Successfully fired CompanionAd ClickTrackingEvent`);
                     return response.status;
                 } catch (err) {
@@ -217,13 +217,13 @@ export class MediaTailorCompanionAd implements IMediaTailorCompanionAd {
             }
         }
         this.fireCompanionAdEvent = (clickMetric: 'creativeView') => {
-            let events = this.trackingEvents.filter(trackingEvent => ['creativeView'].includes(trackingEvent.eventType));
-            let eventsToFire: TrackingEvent[] = [];
+            const events = this.trackingEvents.filter(trackingEvent => ['creativeView'].includes(trackingEvent.eventType));
+            const eventsToFire: TrackingEvent[] = [];
 
             switch (clickMetric) {
                 case "creativeView":
                     events.forEach(t => {
-                        let trackingEvent = new TrackingEvent(t);
+                        const trackingEvent = new TrackingEvent(t);
                         eventsToFire.push(trackingEvent);
                     });
                     break;

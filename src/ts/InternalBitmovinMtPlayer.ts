@@ -134,7 +134,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
 
     private mapAdBreak(adAvail: AdAvail): AdBreak {
-        let adBreak: AdBreak = {
+        const adBreak: AdBreak = {
             replaceContentDuration: 0,
             ads: this.mapAds(adAvail.ads),
             id: adAvail.availId,
@@ -381,7 +381,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
 
     private onAdManifestLoaded = (event: BMTAdBreakEvent) => {
         const playerEvent: AdManifestLoadedEvent = {
-            adBreak: null,
+            adBreak: event.adBreak? this.mapAdBreak(event.adBreak) : null,
             type: PlayerEvent.AdManifestLoaded,
             timestamp: Date.now(),
             adConfig: null,
@@ -426,7 +426,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                     this._sessionResponse = sessionResponse;
                     const manifestType = this.getManifestType(sessionResponse.manifestUrl);
                     if (manifestType === null) throw new Error("Unable to determine Manifest Type")
-                    let clonedSource: SourceConfig = manifestType === 'hls'
+                    const clonedSource: SourceConfig = manifestType === 'hls'
                         ? {
                             ...source,
                             hls: sessionResponse.manifestUrl, // use received url from MediaTailor

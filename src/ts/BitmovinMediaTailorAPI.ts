@@ -5,7 +5,6 @@ import {
     SourceConfig,
 } from 'bitmovin-player';
 import {BitmovinMediaTailorPlayerPolicy, MediaTailorPlayerType, MtSourceConfig} from "./MediaTailorTypes";
-import { Bitmovin8Adapter } from 'bitmovin-analytics';
 
 export interface BitmovinMediaTailorAPI extends PlayerAPI {
     load(source: SourceConfig | MtSourceConfig): Promise<void>;
