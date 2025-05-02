@@ -44,9 +44,9 @@ import {Logger} from "./Logger";
 import stringify from "fast-safe-stringify";
 import {BitmovinMtHelper} from "./BitmovinMtHelper";
 import {InternalBitmovinMtPlayer} from "./InternalBitmovinMtPlayer";
-import {config} from "process";
 import {Bitmovin8Adapter} from "bitmovin-analytics";
 import {ArrayUtils} from "bitmovin-player-ui";
+
 
 export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
     private player: BitmovinMediaTailorAPI;
@@ -169,6 +169,13 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
 
                         this.currentPlayerType = toType;
 
+                        for (const eventType of Object.keys(this.eventHandlers)) {
+                            for (const eventCallback of this.eventHandlers[eventType]) {
+                                oldPlayer.off(eventType as PlayerEvent, eventCallback);
+                                this.player.on(eventType as PlayerEvent, eventCallback);
+                            }
+                        }
+
                         new Bitmovin8Adapter(this.player);
 
                         Logger.log('BitmovinMediaTailorPlayer loading source after switching players- ' + stringify(source));
@@ -259,7 +266,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.manifest;
     }
 
-    addMetadata(metadataType: MetadataType.CAST, metadata: any): boolean {
+    addMetadata(metadataType: MetadataType.CAST, metadata: unknown): boolean {
         return this.player.addMetadata(metadataType, metadata);
     }
 
@@ -308,7 +315,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
     }
 
     getConfig(mergedConfig?: boolean): PlayerConfig {
-        return this.player.getConfig();
+        return this.player.getConfig(mergedConfig);
     }
 
     getContainer(): HTMLElement {
@@ -364,7 +371,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
     }
 
     getSnapshot(type?: string, quality?: number): Snapshot {
-        return this.player.getSnapshot();
+        return this.player.getSnapshot(type, quality);
     }
 
     getSource(): SourceConfig | null {
@@ -380,7 +387,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
     }
 
     getSupportedTech(mode?: SupportedTechnologyMode): Technology[] {
-        return this.player.getSupportedTech();
+        return this.player.getSupportedTech(mode);
     }
 
     getThumbnail(time: number): Thumbnail {
@@ -464,11 +471,11 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
     }
 
     mute(issuer?: string): void {
-        return this.player.mute();
+        return this.player.mute(issuer);
     }
 
     pause(issuer?: string): void {
-        return this.player.pause();
+        return this.player.pause(issuer);
     }
 
     play(issuer?: string): Promise<void> {
@@ -491,7 +498,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.setAudioQuality(audioQualityID);
     }
 
-    setAuthentication(customData: any): void {
+    setAuthentication(customData: unknown): void {
         return this.player.setAuthentication(customData);
     }
 
@@ -540,7 +547,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
     }
 
     unmute(issuer?: string): void {
-        return this.player.unmute();
+        return this.player.unmute(issuer);
     }
 
     setAspectRatio(aspectratio: string | number): void {
@@ -552,4 +559,5 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
     }
 
     readonly drm: DrmAPI;
+    readonly analytics: Bitmovin8Adapter;
 }

@@ -19,13 +19,12 @@ import {
     TimeChangedEvent, TimeMode,
     UserInteractionEvent,
     VastAdExtension
-} from "bitmovin-player";
+} from 'bitmovin-player';
 import {
     BitmovinMediaTailorPlayerPolicy,
     DefaultBitmovinMtPlayerPolicy,
     IMediaTailorCompanionAd,
     MediaTailorCompanionAd,
-    MediaTailorPlayerType,
     MtAssetType,
     MtConfiguration,
     MtSessionResponse,
@@ -105,7 +104,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         return this.session.getActiveAdBreak();
     }
     private mapAds(mtAds: MtAd[]): Ad[] {
-        let bmAds: Ad[] = [];
+        const bmAds: Ad[] = [];
         mtAds.forEach(ad => {
             bmAds.push(this.mapAd(ad));
         });
@@ -113,7 +112,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
 
     private mapAd(ad: MtAd): LinearAd {
-        let bmAd: LinearAd = {
+        const bmAd: LinearAd = {
             isLinear: true,
             duration: ad.durationInSeconds,
             id: ad.adId,
@@ -146,9 +145,9 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
 
     private mapAdExtensions(extensions: {content?: string, type?: string}[]): VastAdExtension[] {
-        let bmExts: VastAdExtension[] = [];
+        const bmExts: VastAdExtension[] = [];
         extensions.forEach(ext => {
-            let bmExt: VastAdExtension = {
+            const bmExt: VastAdExtension = {
                 attributes: null,
                 value: ext.content,
                 name: ext.type,
@@ -161,7 +160,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
 
     private mapCompanionAds(companions: IMediaTailorCompanionAd[]): MediaTailorCompanionAd[] {
-        let comps: MediaTailorCompanionAd[] = [];
+        const comps: MediaTailorCompanionAd[] = [];
         companions.forEach(companion => {
             comps.push(new MediaTailorCompanionAd(companion));
         })
@@ -222,7 +221,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
 
     private getManifestType(manifestUrl: string): 'dash' | 'hls' | null {
-        let url = new URL(manifestUrl);
+        const url = new URL(manifestUrl);
         if (url.pathname.includes('.m3u')) {
             return 'hls';
         } else if (url.pathname.includes('.mpd')) {
@@ -240,21 +239,21 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
             return source.sessionInitUrl as MtSessionResponse;
         }
 
-        let postJson = {
+        const postJson = {
             adsParams: {}
         };
         if (source.adsParams) postJson.adsParams = source.adsParams;
 
         try {
-            let response = await axios.post(source.sessionInitUrl, postJson);
-            let mtSessionResponse: MtSessionResponse = {
+            const response = await axios.post(source.sessionInitUrl, postJson);
+            const mtSessionResponse: MtSessionResponse = {
                 manifestUrl: new URL(response.data['manifestUrl'], new URL(source.sessionInitUrl)).href,
                 trackingUrl: new URL(response.data['trackingUrl'], new URL(source.sessionInitUrl)).href
             }
             Logger.log(mtSessionResponse.manifestUrl);
             return mtSessionResponse;
         } catch(error) {
-            let err = new Error("Error getting MediaTailor Session Initialization Response");
+            const err = new Error("Error getting MediaTailor Session Initialization Response");
             err.stack = error;
             throw err;
         }
@@ -262,7 +261,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
 
     private async fetchMtTracking(mtSessionResponse: MtSessionResponse): Promise<any> {
         try {
-            let response = await axios.get(mtSessionResponse.trackingUrl);
+            const response = await axios.get(mtSessionResponse.trackingUrl);
             return response.data;
         } catch (error) {
             throw new Error("Unable to retrieve MediaTailor Tracking response");
@@ -425,9 +424,9 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
             this.fetchMtSession(source)
                 .then(sessionResponse => {
                     this._sessionResponse = sessionResponse;
-                    let manifestType = this.getManifestType(sessionResponse.manifestUrl);
+                    const manifestType = this.getManifestType(sessionResponse.manifestUrl);
                     if (manifestType === null) throw new Error("Unable to determine Manifest Type")
-                    const clonedSource: SourceConfig = manifestType === 'hls'
+                    let clonedSource: SourceConfig = manifestType === 'hls'
                         ? {
                             ...source,
                             hls: sessionResponse.manifestUrl, // use received url from MediaTailor
@@ -438,6 +437,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                             dash: sessionResponse.manifestUrl, // use received url from MediaTailor
                             hls: undefined,
                         };
+
                     // @ts-ignore
                     clonedSource['sessionInitUrl'] = undefined;
 
@@ -456,7 +456,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                     Logger.log('Loading Source: ' + stringify(clonedSource));
                     this.player.load(clonedSource)
                         .then(() => {
-                            let trackingPromise = this.fetchMtTracking(sessionResponse);
+                            const trackingPromise = this.fetchMtTracking(sessionResponse);
                             trackingPromise.then((tracking) => {
                                 console.log('mcarriga tracking response:')
                                 console.log(tracking);
@@ -563,8 +563,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                 return [];
             }
 
-            let adAvails: AdAvail[] = this.session.getAllAdBreaks();
-            let adBreaks: AdBreak[] = [];
+            const adAvails: AdAvail[] = this.session.getAllAdBreaks();
+            const adBreaks: AdBreak[] = [];
             adAvails.forEach(avail => {
                 adBreaks.push(this.mapAdBreak(avail));
             })
@@ -632,18 +632,18 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
             this.isPlaybackFinished = false;
         }
         Logger.log('Calling BM play()')
-        return this.player.play();
+        return this.player.play(issuer);
     }
 
     pause(issuer?: string): void {
         if (this.playerPolicy.canPause()) {
-            this.player.pause();
+            this.player.pause(issuer);
         }
     }
 
     mute(issuer?: string): void {
         if (this.playerPolicy.canMute()) {
-            this.player.mute();
+            this.player.mute(issuer);
         }
     }
 
