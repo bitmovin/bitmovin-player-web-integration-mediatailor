@@ -4,12 +4,14 @@
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
+    "rootDir": "./src/ts",
     "module": "es2020",
     "moduleResolution": "node",
     "target": "es2017",
     "declaration": true,
     "outDir": "dist/js",
     "sourceMap": true,
-    "lib": ["es2020", "dom"]
+    "lib": ["es2020", "es2022.error", "dom"]
   }
 }

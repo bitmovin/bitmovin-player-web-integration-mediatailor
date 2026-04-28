@@ -44,14 +44,13 @@ import {Logger} from "./Logger";
 import stringify from "fast-safe-stringify";
 import {BitmovinMtHelper} from "./BitmovinMtHelper";
 import {InternalBitmovinMtPlayer} from "./InternalBitmovinMtPlayer";
-import {config} from "process";
 import {Bitmovin8Adapter} from "bitmovin-analytics";
 import {ArrayUtils} from "bitmovin-player-ui";
 
 export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
-    private player: BitmovinMediaTailorAPI;
-    private bitmovinMtPlayer: BitmovinMediaTailorAPI;
-    private bitmovinPlayer: PlayerAPI;
+    private player!: BitmovinMediaTailorAPI;
+    private bitmovinMtPlayer!: BitmovinMediaTailorAPI;
+    private bitmovinPlayer!: PlayerAPI;
     private currentPlayerType: MediaTailorPlayerType = MediaTailorPlayerType.BitmovinMediaTailor;
 
     private BitmovinPlayerStaticApi: StaticPlayerAPI;
@@ -59,7 +58,8 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
     private config: PlayerConfig;
     private mtConfig: MtConfiguration
 
-    private eventHandlers: { [eventType: string]: PlayerEventCallback[] } = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private eventHandlers: { [eventType: string]: PlayerEventCallback<any>[] } = {};
 
     constructor(BitmovinPlayerStaticApi: StaticPlayerAPI, containerElement: HTMLElement, config: PlayerConfig, mtConfig: MtConfiguration = {}) {
         this.BitmovinPlayerStaticApi = BitmovinPlayerStaticApi;
@@ -197,20 +197,17 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.forceSeek(time, issuer);
     }
 
-    on(eventType: PlayerEvent, callback: PlayerEventCallback): void;
-
-    on(eventType: PlayerEvent, callback:  PlayerEventCallback): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    on(eventType: PlayerEvent, callback: PlayerEventCallback<any>): void {
         if (!this.eventHandlers[eventType]) {
             this.eventHandlers[eventType] = [];
         }
         this.eventHandlers[eventType].push(callback);
-
         this.player.on(eventType, callback);
     }
 
-    off(eventType: PlayerEvent, callback: PlayerEventCallback): void;
-
-    off(eventType: PlayerEvent, callback: PlayerEventCallback): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    off(eventType: PlayerEvent, callback: PlayerEventCallback<any>): void {
         this.player.off(eventType, callback);
         ArrayUtils.remove(this.eventHandlers[eventType], callback);
     }
@@ -255,6 +252,14 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.vr;
     }
 
+    get sgai() {
+        return this.player.sgai;
+    }
+
+    get analytics() {
+        return this.player.analytics;
+    }
+
     get manifest(): PlayerManifestAPI {
         return this.player.manifest;
     }
@@ -275,7 +280,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.clearQueryParameters();
     }
 
-    getAudio(): AudioTrack {
+    getAudio(): AudioTrack | null {
         return this.player.getAudio();
     }
 
@@ -335,7 +340,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.getDuration();
     }
 
-    getManifest(): string {
+    getManifest(): string | null {
         return this.player.getManifest();
     }
 
@@ -363,8 +368,8 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.getSeekableRange();
     }
 
-    getSnapshot(type?: string, quality?: number): Snapshot {
-        return this.player.getSnapshot();
+    getSnapshot(type?: string, quality?: number): Snapshot | undefined {
+        return this.player.getSnapshot(type, quality);
     }
 
     getSource(): SourceConfig | null {
@@ -383,7 +388,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.getSupportedTech();
     }
 
-    getThumbnail(time: number): Thumbnail {
+    getThumbnail(time: number): Thumbnail | null {
         return this.player.getThumbnail(time);
     }
 
@@ -551,5 +556,7 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.getAspectRatio();
     }
 
-    readonly drm: DrmAPI;
+    get drm(): DrmAPI {
+        return this.player.drm;
+    }
 }

@@ -441,9 +441,11 @@ export interface BMTAdBreakEvent extends BMTListenerEventBase {
 export interface BMTAdEvent extends BMTListenerEventBase {
     ad: MtAd;
 }
-interface BMTListenerCallbackFunction {
-    (event: BMTListenerEventBase): void;
-}
+// Internal event-bus callbacks are typed loosely so callers can register
+// strongly-typed handlers (BMTAdEvent, BMTAdBreakEvent, …) without running
+// into strict contravariance errors.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type BMTListenerCallbackFunction = (event: any) => void;
 
 interface BMTListenerEventBase {
     type: BMTListenerEvent;

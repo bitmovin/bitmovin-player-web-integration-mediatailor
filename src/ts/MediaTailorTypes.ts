@@ -72,14 +72,14 @@ export class DefaultBitmovinMtPlayerPolicy implements BitmovinMediaTailorPlayerP
         const currentAd = this.player.ads.getActiveAd();
         if (currentAd && currentAd.isLinear && !this.player.isLive()) {
             const currentTime = this.player.getCurrentTime();
-            if ((currentAd as LinearAd).skippableAfter < 0) {
+            const skippableAfter = (currentAd as LinearAd).skippableAfter;
+            if (skippableAfter === undefined || skippableAfter < 0) {
                 return -1;
             }
-
-            if (currentTime >= (currentAd as LinearAd).skippableAfter) {
+            if (currentTime >= skippableAfter) {
                 return 0;
             } else {
-                return (currentAd as LinearAd).skippableAfter - currentTime;
+                return skippableAfter - currentTime;
             }
         }
         return -1;
@@ -192,46 +192,42 @@ export class MediaTailorCompanionAd implements IMediaTailorCompanionAd {
     width: number;
 
     constructor(companionAd: IMediaTailorCompanionAd) {
-        this.adParameters = companionAd.adParameters;
-        this.altText = companionAd.altText;
-        this.attributes = companionAd.attributes;
-        this.companionClickThrough = companionAd.companionClickThrough;
-        this.companionClickTracking = companionAd.companionClickTracking;
-        this.height = parseInt(companionAd.attributes.height);
-        this.width = parseInt(companionAd.attributes.width);
-        this.htmlResource = companionAd.htmlResource;
-        this.iFrameResource = companionAd.iFrameResource;
-        this.sequence = companionAd.sequence;
-        this.staticResource = companionAd.staticResource;
+        this.adParameters = companionAd.adParameters ?? null;
+        this.altText = companionAd.altText ?? null;
+        this.attributes = companionAd.attributes ?? {};
+        this.companionClickThrough = companionAd.companionClickThrough ?? null;
+        this.companionClickTracking = companionAd.companionClickTracking ?? null;
+        this.height = parseInt(companionAd.attributes?.height ?? '0');
+        this.width = parseInt(companionAd.attributes?.width ?? '0');
+        this.htmlResource = companionAd.htmlResource ?? null;
+        this.iFrameResource = companionAd.iFrameResource ?? null;
+        this.sequence = companionAd.sequence ?? null;
+        this.staticResource = companionAd.staticResource ?? null;
         this.trackingEvents = companionAd.trackingEvents;
-        this.fireCompanionClickTrackingEvent = async(): Promise<number> => {
-            if (this.companionClickTracking && this.companionClickTracking != '') {
+        this.fireCompanionClickTrackingEvent = async (): Promise<number> => {
+            if (this.companionClickTracking && this.companionClickTracking !== '') {
                 try {
-                    let response = await axios.get(this.companionClickTracking);
-                    Logger.log(`Successfully fired CompanionAd ClickTrackingEvent`);
+                    const response = await axios.get(this.companionClickTracking);
+                    Logger.log('Successfully fired CompanionAd ClickTrackingEvent');
                     return response.status;
                 } catch (err) {
-                    Logger.error(`Unable to fire CompanionAd ClickTrackingEvent. Got response code ${err.code} with message ${err.message}`);
-                    return err.code;
+                    const e = err as { code?: number; message?: string };
+                    Logger.error(`Unable to fire CompanionAd ClickTrackingEvent. Got response code ${e.code} with message ${e.message}`);
+                    return e.code ?? 0;
                 }
             }
-        }
+            return 0;
+        };
         this.fireCompanionAdEvent = (clickMetric: 'creativeView') => {
-            let events = this.trackingEvents.filter(trackingEvent => ['creativeView'].includes(trackingEvent.eventType));
-            let eventsToFire: TrackingEvent[] = [];
-
+            const events = this.trackingEvents.filter(e => ['creativeView'].includes(e.eventType));
+            const eventsToFire: TrackingEvent[] = [];
             switch (clickMetric) {
-                case "creativeView":
-                    events.forEach(t => {
-                        let trackingEvent = new TrackingEvent(t);
-                        eventsToFire.push(trackingEvent);
-                    });
+                case 'creativeView':
+                    events.forEach(t => eventsToFire.push(new TrackingEvent(t)));
                     break;
             }
-            eventsToFire?.forEach(event => {
-                event.fireTrackingEvent();
-            });
-        }
+            eventsToFire.forEach(e => e.fireTrackingEvent());
+        };
     }
 }
 export interface IAdIcon {

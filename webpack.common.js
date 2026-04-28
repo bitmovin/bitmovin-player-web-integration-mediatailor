@@ -14,9 +14,14 @@ module.exports = {
     },
     resolve: {
         extensions: ['.tsx', '.ts', '.js'],
+        alias: {
+            // axios >=1.7 imports 'process/browser' as a fully-specified ESM path;
+            // map it to the concrete .js file so webpack can resolve it.
+            'process/browser': require.resolve('process/browser.js'),
+        },
         fallback: {
-            stream: require.resolve('stream-browserify'), // and install `stream-browserify`
-            buffer: false, // require.resolve("buffer/") and install `buffer`
+            stream: require.resolve('stream-browserify'),
+            buffer: false,
         },
     },
     output: {

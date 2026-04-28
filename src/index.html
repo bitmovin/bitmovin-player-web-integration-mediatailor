@@ -283,7 +283,7 @@
             conf,
             mtConfig
         )
-        uiManager = new bitmovin.playerui.UIFactory.buildDefaultUI(mtPlayer);
+        uiManager = new bitmovin.playerui.UIFactory.buildUI(mtPlayer);
 
         mtPlayer.on('error', function(e){
             console.log(e);

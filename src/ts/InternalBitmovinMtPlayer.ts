@@ -14,7 +14,7 @@ import {
     PlayerEvent,
     PlayerEventBase,
     PlayerEventCallback,
-    SeekEvent, SegmentPlaybackEvent,
+    SegmentPlaybackEvent,
     SourceConfig,
     TimeChangedEvent, TimeMode,
     UserInteractionEvent,
@@ -51,9 +51,10 @@ import {
 export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     private readonly player: PlayerAPI;
     private mtConfig: MtConfiguration;
-    private mediaTailorSourceConfig: MtSourceConfig;
+    private mediaTailorSourceConfig!: MtSourceConfig;
 
-    private eventHandlers: { [eventType: string]: PlayerEventCallback[] } = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private eventHandlers: { [eventType: string]: PlayerEventCallback<any>[] } = {};
     private suppressedEventsController: EventSuppressController = new EventSuppressController();
 
     // save playback speed to restore after AdBreak
@@ -111,24 +112,24 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
 
     private mapAd(ad: MtAd): LinearAd {
-        let bmAd: LinearAd = {
+        const bmAd: LinearAd = {
             isLinear: true,
             duration: ad.durationInSeconds,
             id: ad.adId,
             companionAds: this.mapCompanionAds(ad.companionAds),
-            height: null,
-            width: null,
-            data: null,
-            mediaFileUrl: ad.mediaFiles[0]?.mediaFilesList[0]?.mediaFileUri,
+            height: 0,
+            width: 0,
+            data: undefined,
+            mediaFileUrl: ad.mediaFiles[0]?.mediaFilesList[0]?.mediaFileUri ?? undefined,
             verifications: ad.adVerifications,
             extensions: this.mapAdExtensions(ad.extensions),
-            clickThroughUrl: ad.clickThroughUrl,
+            clickThroughUrl: ad.clickThroughUrl ?? undefined,
             clickThroughUrlOpened: ad.clickThroughUrlOpened,
-            skippableAfter: parseInt(ad.skipOffset),
+            skippableAfter: ad.skipOffset ? parseInt(ad.skipOffset) : undefined,
             uiConfig: {
                 requestsUi: true,
-            }
-        }
+            },
+        };
         return bmAd;
     }
 
@@ -143,19 +144,14 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         return adBreak;
     }
 
-    private mapAdExtensions(extensions: {content?: string, type?: string}[]): VastAdExtension[] {
-        let bmExts: VastAdExtension[] = [];
-        extensions.forEach(ext => {
-            let bmExt: VastAdExtension = {
-                attributes: null,
-                value: ext.content,
-                name: ext.type,
-                children: null
-            }
-            bmExts.push(bmExt);
-        })
-
-        return bmExts;
+    private mapAdExtensions(extensions: {content?: string | null; type?: string | null}[]): VastAdExtension[] {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return extensions.map(ext => ({
+            attributes: {},
+            value: ext.content ?? undefined,
+            name: ext.type ?? undefined,
+            children: [],
+        })) as any as VastAdExtension[];
     }
 
     private mapCompanionAds(companions: IMediaTailorCompanionAd[]): MediaTailorCompanionAd[] {
@@ -183,7 +179,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         return this.session.getActiveAd();
     }
 
-    private toMagicTime(playbackTime: number, issuer:string = null): number {
+    private toMagicTime(playbackTime: number, issuer: string | null = null): number {
         if (this.isLive()) return playbackTime;
         if (!this.session) return playbackTime;
 
@@ -250,9 +246,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
             Logger.log(mtSessionResponse.manifestUrl);
             return mtSessionResponse;
         } catch(error) {
-            let err = new Error("Error getting MediaTailor Session Initialization Response");
-            err.stack = error;
-            throw err;
+            throw new Error("Error getting MediaTailor Session Initialization Response", { cause: error });
         }
     }
 
@@ -300,8 +294,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
 
     private getCurrentAdDuration(): number {
-        if (this.isAdActive()) return this.getAdDuration(this.getCurrentAd());
-
+        const ad = this.getCurrentAd();
+        if (this.isAdActive() && ad) return this.getAdDuration(ad);
         return 0;
     }
 
@@ -342,6 +336,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
     private onAdBreakStarted = (event: BMTAdBreakEvent) => {
         Logger.log('[BitmovinMediaTailorPlayer] AD_BREAK_START');
+        if (!event.adBreak) return;
         this.player.setPlaybackSpeed(1);
 
         const playerEvent: AdBreakEvent = {
@@ -379,32 +374,33 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         this.adStartedTimestamp = null;
     }
 
-    private onAdManifestLoaded = (event: BMTAdBreakEvent) => {
+    private onAdManifestLoaded = (_event: BMTAdBreakEvent) => {
         const playerEvent: AdManifestLoadedEvent = {
-            adBreak: null,
+            adBreak: undefined as never,
             type: PlayerEvent.AdManifestLoaded,
             timestamp: Date.now(),
-            adConfig: null,
-            downloadTiming: null
+            adConfig: undefined as never,
+            downloadTiming: undefined as never,
         };
-
         this.fireEvent<AdManifestLoadedEvent>(playerEvent);
     };
 
     private onAdBreakFinished = (event: BMTAdBreakEvent) => {
         Logger.log('[BitmovinMediaTailorPlayer] AD_BREAK_FINISHED');
 
-        const playerEvent: AdBreakEvent = {
-            adBreak: {
-                replaceContentDuration: 0,
-                ads: this.mapAds(event.adBreak.ads),
-                id: event.adBreak.availId,
-                scheduleTime: event.adBreak.startTimeInSeconds,
-            },
-            type: PlayerEvent.AdBreakFinished,
-            timestamp: Date.now()
+        if (event.adBreak) {
+            const playerEvent: AdBreakEvent = {
+                adBreak: {
+                    replaceContentDuration: 0,
+                    ads: this.mapAds(event.adBreak.ads),
+                    id: event.adBreak.availId,
+                    scheduleTime: event.adBreak.startTimeInSeconds,
+                },
+                type: PlayerEvent.AdBreakFinished,
+                timestamp: Date.now(),
+            };
+            this.fireEvent<AdBreakEvent>(playerEvent);
         }
-        this.fireEvent<AdBreakEvent>(playerEvent);
 
         if (this.cachedSeekTarget) {
             Logger.log('[BitmovinMediaTailorPlayer] Found cached seek target - seeking there ' + this.cachedSeekTarget)
@@ -473,13 +469,13 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         });
     }
 
-    off(eventType: PlayerEvent, callback: PlayerEventCallback): void;
-    off(eventType: PlayerEvent, callback: PlayerEventCallback): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    off(eventType: PlayerEvent, callback: PlayerEventCallback<any>): void {
         ArrayUtils.remove(this.eventHandlers[eventType], callback);
     }
 
-    on(eventType: PlayerEvent, callback: PlayerEventCallback): void;
-    on(eventType: PlayerEvent, callback: PlayerEventCallback): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    on(eventType: PlayerEvent, callback: PlayerEventCallback<any>): void {
         // we need to suppress some events because they need to be modified first. so don't add it to the actual player
         const suppressedEventTypes = [
             this.player.exports.PlayerEvent.TimeChanged,
@@ -538,18 +534,20 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
 
         getActiveAdBreak: () => {
             if (!this.isAdActive()) {
-                return undefined;
+                return null;
             }
-
-            return this.mapAdBreak(this.getCurrentAdBreak());
+            const adBreak = this.getCurrentAdBreak();
+            if (!adBreak) return null;
+            return this.mapAdBreak(adBreak);
         },
 
         getActiveAd: () => {
             if (!this.isAdActive()) {
-                return undefined;
+                return null;
             }
-
-            return this.mapAd(this.getCurrentAd());
+            const ad = this.getCurrentAd();
+            if (!ad) return null;
+            return this.mapAd(ad);
         },
 
         isLinearAdActive: () => {
@@ -561,12 +559,11 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                 return [];
             }
 
-            let adAvails: AdAvail[] = this.session.getAllAdBreaks();
-            let adBreaks: AdBreak[] = [];
-            adAvails.forEach(avail => {
-                adBreaks.push(this.mapAdBreak(avail));
-            })
-            return adBreaks;
+            // Only return unwatched breaks — mirrors the Yospace integration pattern.
+            // This ensures canSeekTo in the policy only traps on breaks the user hasn't seen yet.
+            return this.session.getAllAdBreaks()
+                .filter(avail => !avail.adBreakEndEventFired)
+                .map(avail => this.mapAdBreak(avail));
         },
 
         schedule: (adConfig: AdConfig) => {
@@ -578,8 +575,9 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                 if (this.playerPolicy.canSkip() === 0) {
                     const ad = this.getCurrentAd();
                     const adBreak = this.getCurrentAdBreak();
-                    const seekTarget = ad.startTimeInSeconds + ad.durationInSeconds;
+                    if (!ad || !adBreak) return Promise.resolve();
 
+                    const seekTarget = ad.startTimeInSeconds + ad.durationInSeconds;
                     if (seekTarget >= this.player.getDuration()) {
                         this.isPlaybackFinished = true;
                         this.suppressedEventsController.add(
@@ -588,7 +586,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                             this.player.exports.PlayerEvent.Seeked
                         );
                         this.player.pause();
-                        this.player.seek(adBreak.startTimeInSeconds - 1); // -1 to be sure to don't have a frame of the ad visible
+                        this.player.seek(adBreak.startTimeInSeconds - 1);
                         this.fireEvent({
                             timestamp: Date.now(),
                             type: this.player.exports.PlayerEvent.PlaybackFinished,
@@ -597,14 +595,13 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                         this.player.seek(seekTarget, 'ad-skip');
                     }
 
-                    // Fire Ad Skipped Event. MediaTailorSession will listen for AdSkipped events and fire 'skip' beacons if present
                     this.fireEvent({
                         timestamp: Date.now(),
                         type: this.player.exports.PlayerEvent.AdSkipped,
                         ad: this.mapAd(ad),
                     } as AdEvent);
                 } else {
-                    Logger.error("PlayerPolicy does not allow skipping Ad")
+                    Logger.error('PlayerPolicy does not allow skipping Ad');
                 }
             }
             return Promise.resolve();
@@ -694,7 +691,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         if (this.isAdActive()) {
             // return currentTime in AdBreak
             const currentAdPosition = this.player.getCurrentTime(mode);
-            return currentAdPosition - this.getAdStartTime(this.getCurrentAd());
+            const ad = this.getCurrentAd();
+            return currentAdPosition - (ad ? this.getAdStartTime(ad) : 0);
         }
         return this.toMagicTime(this.player.getCurrentTime(mode));
     }
@@ -717,22 +715,22 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         this.fireEvent(event);
     };
 
-    private onSeek = (event: SeekEvent) => {
+    private onSeek = (event: PlayerEventBase) => {
         Logger.log('[BitmovinMediaTailorPlayer] - PlayerEvent.SEEK');
         this.fireEvent(event);
     };
 
-    private onSeeked = (event: SeekEvent) => {
+    private onSeeked = (event: PlayerEventBase) => {
         Logger.log('[BitmovinMediaTailorPlayer] - PlayerEvent.SEEKED');
         this.fireEvent(event);
     };
 
-    private onStallStarted = (event: SeekEvent) => {
+    private onStallStarted = (event: PlayerEventBase) => {
         Logger.log('[BitmovinMediaTailorPlayer] - PlayerEvent.STALL');
         this.fireEvent(event);
     };
 
-    private onStallEnded = (event: SeekEvent) => {
+    private onStallEnded = (event: PlayerEventBase) => {
         Logger.log('[BitmovinMediaTailorPlayer] - PlayerEvent.STALL_ENDED');
         this.fireEvent(event);
     };
@@ -806,15 +804,15 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
             // getters/setters.
             // Only add properties that are not already present
             if (!(this as any)[property]) {
-                const propertyDescriptor: PropertyDescriptor =
+                const propertyDescriptor: PropertyDescriptor | undefined =
                     Object.getOwnPropertyDescriptor(this.player, property) ||
                     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this.player), property);
 
                 // If the property has getters/setters, wrap them accordingly...
                 if (propertyDescriptor && (propertyDescriptor.get || propertyDescriptor.set)) {
                     Object.defineProperty(this as any, property, {
-                        get: () => propertyDescriptor.get.call(this.player),
-                        set: (value: any) => propertyDescriptor.set.call(this.player, value),
+                        get: propertyDescriptor.get ? () => propertyDescriptor.get!.call(this.player) : undefined,
+                        set: propertyDescriptor.set ? (value: any) => propertyDescriptor.set!.call(this.player, value) : undefined,
                         enumerable: true,
                     });
                 }
@@ -830,7 +828,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         if (this.eventHandlers[event.type]) {
             this.eventHandlers[event.type].forEach(
                 // Trigger events to the customer application asynchronously using setTimeout(fn, 0).
-                (callback: PlayerEventCallback) => setTimeout(() => callback(event), 0),
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (callback: PlayerEventCallback<any>) => setTimeout(() => callback(event), 0),
                 this
             );
         }
