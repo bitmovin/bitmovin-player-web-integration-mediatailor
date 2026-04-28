@@ -60,7 +60,7 @@ export class DefaultBitmovinMtPlayerPolicy implements BitmovinMediaTailorPlayerP
             return adBreak.scheduleTime > currentTime && adBreak.scheduleTime < seekTarget;
         });
 
-        if (skippedAdBreaks.length > 0) {
+        if (skippedAdBreaks.length > 0 && !this.player.isAdImmunityActive()) {
             const adBreakToPlay = skippedAdBreaks[skippedAdBreaks.length - 1];
             return adBreakToPlay.scheduleTime;
         }
@@ -99,12 +99,31 @@ export class DefaultBitmovinMtPlayerPolicy implements BitmovinMediaTailorPlayerP
 
     shouldAutomaticallySkipOverWatchedAdBreaks: boolean = true;
 }
+export interface AdImmunityConfig {
+    /**
+     * How long (in seconds) ad immunity lasts after an ad break finishes.
+     * During this window the player can seek freely without being trapped at unwatched breaks.
+     * Default: 30 seconds.
+     */
+    duration?: number;
+    /**
+     * When true, any unwatched ad break the player seeks past during the immunity window is
+     * automatically marked as watched, so it will not trap the user on future seeks.
+     * Default: true.
+     */
+    disablePassedAdBreaks?: boolean;
+}
 export interface MtConfiguration {
     debug?: boolean;
     disableServiceWorker?: boolean;
     disableStrictBreaks?: boolean;
     useTizen?: boolean;
     useWebos?: boolean;
+    /**
+     * Configures a post-ad-break immunity window during which the user can seek freely.
+     * Omit this field (or set it to undefined) to disable ad immunity entirely.
+     */
+    adImmunity?: AdImmunityConfig;
 }
 export enum MtAdBreakPosition {
     Unknown = 'unknown',

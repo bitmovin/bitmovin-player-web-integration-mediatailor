@@ -9,5 +9,6 @@ export interface BitmovinMediaTailorAPI extends PlayerAPI {
     getCurrentPlayerType(): MediaTailorPlayerType;
     setPolicy(policy: BitmovinMediaTailorPlayerPolicy): void;
     forceSeek(time: number, issuer?: string): boolean;
+    isAdImmunityActive(): boolean;
 }
 

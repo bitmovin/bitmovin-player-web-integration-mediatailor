@@ -197,6 +197,11 @@ export class BitmovinMediaTailorPlayer implements BitmovinMediaTailorAPI {
         return this.player.forceSeek(time, issuer);
     }
 
+    isAdImmunityActive(): boolean {
+        // Immunity lives in the MT player only; return false when in Bitmovin fallback mode.
+        return this.bitmovinMtPlayer.isAdImmunityActive();
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     on(eventType: PlayerEvent, callback: PlayerEventCallback<any>): void {
         if (!this.eventHandlers[eventType]) {

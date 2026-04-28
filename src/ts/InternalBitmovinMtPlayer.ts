@@ -67,6 +67,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     private _session: MediaTailorSession | null = null;
 
     private lastTimeChangedTime = 0;
+    private adImmune = false;
+    private adImmunityTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(containerElement: HTMLElement, player: PlayerAPI, mtConfig: MtConfiguration = {}) {
         Logger.log('[BitmovinMediaTailorPlayer] loading');
@@ -402,10 +404,16 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
             this.fireEvent<AdBreakEvent>(playerEvent);
         }
 
-        if (this.cachedSeekTarget) {
-            Logger.log('[BitmovinMediaTailorPlayer] Found cached seek target - seeking there ' + this.cachedSeekTarget)
-            this.seek(this.cachedSeekTarget, 'mediatailor-ad-skipping');
+        this.startAdImmunityPeriod();
+
+        // Defer the cached seek by one tick so the current onTimeChanged cycle (which fired this
+        // callback synchronously) fully completes before we check canSeek(). Without deferral the
+        // session's _activeAd / _activeAdBreak state is still set, causing canSeek() to return false.
+        if (this.cachedSeekTarget !== null) {
+            const target = this.cachedSeekTarget;
             this.cachedSeekTarget = null;
+            Logger.log('[BitmovinMediaTailorPlayer] Restoring cached seek target: ' + target);
+            setTimeout(() => this.seek(target, 'mediatailor-ad-skipping'), 0);
         }
 
         this.player.setPlaybackSpeed(this.playbackSpeed);
@@ -646,6 +654,23 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         return this.player.seek(this.toAbsoluteTime(time), issuer);
     }
 
+    isAdImmunityActive(): boolean {
+        return this.adImmune;
+    }
+
+    private startAdImmunityPeriod(): void {
+        if (!this.mtConfig.adImmunity) return;
+        this.adImmune = true;
+        if (this.adImmunityTimer !== null) clearTimeout(this.adImmunityTimer);
+        const durationMs = (this.mtConfig.adImmunity.duration ?? 30) * 1000;
+        this.adImmunityTimer = setTimeout(() => {
+            this.adImmune = false;
+            this.adImmunityTimer = null;
+            Logger.log('[BitmovinMediaTailorPlayer] Ad immunity expired');
+        }, durationMs);
+        Logger.log(`[BitmovinMediaTailorPlayer] Ad immunity started (${this.mtConfig.adImmunity.duration ?? 30}s)`);
+    }
+
     seek(time: number, issuer?: string): boolean {
         // do not use this seek method for seeking within ads (skip) use player.seek(…) instead
         if (!this.playerPolicy.canSeek()) {
@@ -659,8 +684,28 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         } else {
             this.cachedSeekTarget = null;
         }
-        const magicSeekTarget = this.toAbsoluteTime(allowedSeekTarget);
 
+        // During ad immunity, mark any unwatched breaks the seek jumps past as watched.
+        // This mirrors the Yospace integration's disablePassedAdBreaks behaviour.
+        if (this.adImmune && this.session && this.mtConfig.adImmunity?.disablePassedAdBreaks !== false) {
+            const currentContentTime = this.getCurrentTime();
+            this.session.getAllAdBreaks()
+                .filter(avail => {
+                    const availContentStart = this.toMagicTime(avail.startTimeInSeconds);
+                    return (
+                        !avail.adBreakEndEventFired &&
+                        availContentStart > currentContentTime &&
+                        availContentStart < time
+                    );
+                })
+                .forEach(avail => {
+                    Logger.log(`[BitmovinMediaTailorPlayer] Ad immunity: marking break ${avail.availId} as watched`);
+                    avail.adBreakStartEventFired = true;
+                    avail.adBreakEndEventFired = true;
+                });
+        }
+
+        const magicSeekTarget = this.toAbsoluteTime(allowedSeekTarget);
         Logger.log('Seek: ' + time + ' -> ' + magicSeekTarget);
         return this.player.seek(magicSeekTarget, issuer);
     }
@@ -757,12 +802,16 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     private resetState(): void {
         // reset all local attributes
         this.unregisterPlayerEvents();
+        if (this.adImmunityTimer !== null) {
+            clearTimeout(this.adImmunityTimer);
+            this.adImmunityTimer = null;
+        }
+        this.adImmune = false;
         if (this.session) {
             Logger.log('[BitmovinMediaTailorPlayer] - Stop');
             this.session.shutdown();
             this.session = null;
         }
-
         this.adStartedTimestamp = null;
         this.cachedSeekTarget = null;
     }
