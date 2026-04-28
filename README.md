@@ -117,6 +117,9 @@ bitmovinMtPlayer.load(source);
 // Create the UI afterwards (see https://github.com/bitmovin/bitmovin-player-ui for details)
 const uiManager = UIFactory.buildDefaultUI(player);
 ```
+
+> **Session teardown**: calling `bitmovinMtPlayer.unload()` (or loading a new source) automatically shuts down the active MediaTailor session, deregisters all internal player event listeners, and clears ad-break state. There is no need to call any teardown method manually.
+
 ### Advanced Setup
 
 #### Policy
@@ -148,7 +151,7 @@ const bitmovinMtPlayer = new BitmovinMediaTailorPlayer(Player, playerContainer, 
 
 ### Set up environment
 
-1. Use node.js version specified in `.nvmrc`
+1. Use Node.js `>=18`. The exact version used during development is tracked in `.nvmrc`.
 2. Run `npm ci`
 3. Use `npm run start` to run a webpack dev server
 

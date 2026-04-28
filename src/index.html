@@ -343,12 +343,7 @@
             console.log(e);
         });
 
-        mtPlayer.on('playing', function(e) {
-            console.log('mcarriga html playing event');
-        });
-
         mtPlayer.on('admanifestloaded', function(e) {
-            console.log('mcarriga admanifestloaded');
             console.log(e);
             mtPlayer.ads.list().forEach(adBreak => {
                 console.log(`adList ${adBreak.scheduleTime}`);

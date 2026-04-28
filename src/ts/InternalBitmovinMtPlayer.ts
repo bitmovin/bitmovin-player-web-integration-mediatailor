@@ -59,11 +59,11 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     // save playback speed to restore after AdBreak
     private playbackSpeed = 1;
     private isPlaybackFinished = false;
-    private playerPolicy: BitmovinMediaTailorPlayerPolicy;
-    private cachedSeekTarget: number;
-    private adStartedTimestamp: number;
-    private _sessionResponse: MtSessionResponse;
-    private _session: MediaTailorSession;
+    private playerPolicy!: BitmovinMediaTailorPlayerPolicy;
+    private cachedSeekTarget: number | null = null;
+    private adStartedTimestamp: number | null = null;
+    private _sessionResponse!: MtSessionResponse;
+    private _session: MediaTailorSession | null = null;
 
     private lastTimeChangedTime = 0;
 
@@ -71,11 +71,9 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         Logger.log('[BitmovinMediaTailorPlayer] loading');
         this.player = player;
         this.mtConfig = mtConfig;
-        this.session = null;
         this.wrapPlayer();
     }
 
-    // Getters/Setters
     get session(): MediaTailorSession | null {
         return this._session;
     }
@@ -170,9 +168,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
 
     private getAdStartTime(ad: MtAd): number {
         if (this.isLive()) {
-            return this.adStartedTimestamp || 0;
+            return this.adStartedTimestamp ?? 0;
         }
-
         return ad.startTimeInSeconds;
     }
 
@@ -181,9 +178,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         return this.session.isAdBreakActive()
     }
 
-    private getCurrentAd(): MtAd {
+    private getCurrentAd(): MtAd | null {
         if (!this.session) return null;
-
         return this.session.getActiveAd();
     }
 
@@ -296,8 +292,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         this.player.off(PlayerEvent.StallStarted, this.onStallStarted);
         this.player.off(PlayerEvent.StallEnded, this.onStallEnded);
 
-        this.player.on(PlayerEvent.Muted, this.onMuted);
-        this.player.on(PlayerEvent.Unmuted, this.onUnmuted);
+        this.player.off(PlayerEvent.Muted, this.onMuted);
+        this.player.off(PlayerEvent.Unmuted, this.onUnmuted);
 
         // To support ads in live streams we need to track metadata events
         //this.player.off(PlayerEvent.Metadata, this.onMetaData);
@@ -314,16 +310,17 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
     }
 
     private handleQuartileEvent(adQuartileEventName: string): void {
+        const quartile = this.mapAdQuartile(adQuartileEventName);
+        if (!quartile) return;
         const playerEvent: AdQuartileEvent = {
             timestamp: Date.now(),
             type: this.player.exports.PlayerEvent.AdQuartile,
-            quartile: this.mapAdQuartile(adQuartileEventName),
+            quartile,
         };
-
         this.fireEvent(playerEvent);
     }
 
-    private mapAdQuartile(quartileEvent: string): AdQuartile {
+    private mapAdQuartile(quartileEvent: string): AdQuartile | undefined {
         switch (quartileEvent) {
             case 'firstQuartile':
                 return this.player.exports.AdQuartile.FIRST_QUARTILE;
@@ -331,6 +328,8 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                 return this.player.exports.AdQuartile.MIDPOINT;
             case 'thirdQuartile':
                 return this.player.exports.AdQuartile.THIRD_QUARTILE;
+            default:
+                return undefined;
         }
     }
 
@@ -458,8 +457,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
                         .then(() => {
                             let trackingPromise = this.fetchMtTracking(sessionResponse);
                             trackingPromise.then((tracking) => {
-                                console.log('mcarriga tracking response:')
-                                console.log(tracking);
+                                Logger.log('Tracking response received');
                                 this.session = new MediaTailorSession(tracking, this.player, this.playerPolicy);
                                 this.bindMediaTailorEvent();
                                 this.session.onAdManifestLoaded();
@@ -764,7 +762,7 @@ export class InternalBitmovinMtPlayer implements BitmovinMediaTailorAPI {
         if (this.session) {
             Logger.log('[BitmovinMediaTailorPlayer] - Stop');
             this.session.shutdown();
-            this.session = undefined;
+            this.session = null;
         }
 
         this.adStartedTimestamp = null;
