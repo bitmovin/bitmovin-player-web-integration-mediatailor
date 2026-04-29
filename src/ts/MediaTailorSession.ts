@@ -50,6 +50,11 @@ export class MediaTailorSession {
     private _activeAdBreak: AdAvail | null = null;
     private _activeAd: MtAd | null = null;
 
+    // Unix epoch offset for DASH live streams. MT startTimeInSeconds values are relative to
+    // dashAvailabilityStartTime; player.getCurrentTime() returns absolute Unix seconds.
+    // Subtracting this offset converts player time → MT-compatible time.
+    private dashAvailabilityStartUnix: number | null = null;
+
     private isPaused = false;
     private listeners: { [eventType: string]: BMTListenerCallbackFunction[] } = {};
 
@@ -61,6 +66,14 @@ export class MediaTailorSession {
         this.trackingResponse.avails.sort((a, b) => a.startTimeInSeconds - b.startTimeInSeconds);
         this.player = player;
         this._policy = policy;
+
+        if (this.trackingResponse.dashAvailabilityStartTime) {
+            const parsed = new Date(this.trackingResponse.dashAvailabilityStartTime).getTime();
+            if (!isNaN(parsed)) {
+                this.dashAvailabilityStartUnix = parsed / 1000;
+                Logger.log(`[MediaTailorSession] DASH live detected. dashAvailabilityStartUnix=${this.dashAvailabilityStartUnix}`);
+            }
+        }
         player.on(PlayerEvent.TimeChanged, this.onTimeChanged);
         player.on(PlayerEvent.Paused, this.onPaused);
         player.on(PlayerEvent.Play, this.onPlay);
@@ -82,6 +95,15 @@ export class MediaTailorSession {
         const updated = new MediaTailorSessionTrackingResponse(updatedResponse);
         if (updated.nextToken) this.trackingResponse.nextToken = updated.nextToken;
 
+        // Parse DASH availability start time from live updates in case the initial response didn't include it
+        if (this.dashAvailabilityStartUnix === null && updated.dashAvailabilityStartTime) {
+            const parsed = new Date(updated.dashAvailabilityStartTime).getTime();
+            if (!isNaN(parsed)) {
+                this.dashAvailabilityStartUnix = parsed / 1000;
+                Logger.log(`[MediaTailorSession] DASH dashAvailabilityStartUnix set from live update: ${this.dashAvailabilityStartUnix}`);
+            }
+        }
+
         updated.avails.forEach(newAvail => {
             const idx = this.trackingResponse.avails.findIndex(
                 avail => avail.startTimeInSeconds === newAvail.startTimeInSeconds,
@@ -96,10 +118,28 @@ export class MediaTailorSession {
                 // break rather than replacing it wholesale so that already-fired flags are preserved.
                 const existing = this.trackingResponse.avails[idx];
                 if (existing && existing !== newAvail) {
-                    // Replace unfired tracking events with the updated set while keeping fired state
+                    // Only fill in duration when the stored value is still 0.
+                    // Never overwrite a non-zero duration — doing so could shrink the window and cause
+                    // the active break to be immediately "ended" before any events fire.
+                    if (existing.durationInSeconds === 0) {
+                        const newDur = (newAvail.durationInSeconds ?? 0) > 0
+                            ? newAvail.durationInSeconds ?? 0
+                            : (newAvail.adMarkerDuration ? parsePTDuration(String(newAvail.adMarkerDuration)) : 0);
+                        if (newDur > 0) {
+                            Logger.log(`[MediaTailorSession] Filling avail ${existing.availId} duration: 0 → ${newDur}`);
+                            existing.durationInSeconds = newDur;
+                            existing.duration = newAvail.duration;
+                        }
+                    }
+
                     newAvail.ads.forEach((newAd, adIdx) => {
                         const existingAd = existing.ads[adIdx];
-                        if (existingAd) {
+                        if (!existingAd) {
+                            // Ad wasn't present yet (initial response often omits ad details) — add it now
+                            existing.ads.push(newAd);
+                            Logger.log(`[MediaTailorSession] Added ad ${newAd.adId} to existing avail ${existing.availId}`);
+                        } else {
+                            // Merge any new tracking events into the existing ad, preserving fired state
                             newAd.trackingEvents.forEach(newEvent => {
                                 const alreadyPresent = existingAd.trackingEvents.some(
                                     e => e.eventId === newEvent.eventId && e.startTimeInSeconds === newEvent.startTimeInSeconds,
@@ -133,6 +173,7 @@ export class MediaTailorSession {
         this._totalStitchedDuration = undefined;
         this._totalDurationMinusAds = undefined;
         this._policy = undefined!;
+        this.dashAvailabilityStartUnix = null;
         this.listeners = {};
         MediaTailorSession.currentSession = undefined;
     }
@@ -158,9 +199,30 @@ export class MediaTailorSession {
 
     // ─── Core time-changed state machine ────────────────────────────────────────
 
+    /**
+     * Returns a playhead time in the same time base as MT startTimeInSeconds.
+     * - DASH live: player returns Unix epoch seconds; subtract dashAvailabilityStartUnix to get MT-relative time.
+     * - HLS live: player RelativeTime already aligns with MT startTimeInSeconds.
+     * - VOD: event.time is used directly (passed through from onTimeChanged).
+     */
+    private _lastLoggedTrackingTime = 0;
+
+    private getLiveTrackingTime(): number {
+        if (this.dashAvailabilityStartUnix !== null) {
+            const mtTime = this.player.getCurrentTime() - this.dashAvailabilityStartUnix;
+            // Log once per second to avoid flooding the console
+            if (Math.abs(mtTime - this._lastLoggedTrackingTime) >= 1) {
+                this._lastLoggedTrackingTime = mtTime;
+                Logger.log(`[MediaTailorSession] DASH tracking time: ${mtTime.toFixed(3)} (player=${this.player.getCurrentTime().toFixed(3)}, offset=${this.dashAvailabilityStartUnix})`);
+            }
+            return mtTime;
+        }
+        return this.player.getCurrentTime(TimeMode.RelativeTime);
+    }
+
     onTimeChanged = (event: TimeChangedEvent): void => {
         const time = this.player.isLive()
-            ? this.player.getCurrentTime(TimeMode.RelativeTime)
+            ? this.getLiveTrackingTime()
             : event.time;
         this.updateActiveAdBreak(time);
         this.updateActiveAd(time);
@@ -176,7 +238,13 @@ export class MediaTailorSession {
      */
     private updateActiveAdBreak(time: number): void {
         if (this._activeAdBreak) {
-            const breakEnd = this._activeAdBreak.startTimeInSeconds + this._activeAdBreak.durationInSeconds;
+            const dur = this._activeAdBreak.durationInSeconds;
+            if (dur === 0) {
+                // Duration not yet delivered by MediaTailor — stay in the break and wait for
+                // liveUpdateTracking to fill it in before we can determine the break end.
+                return;
+            }
+            const breakEnd = this._activeAdBreak.startTimeInSeconds + dur;
             if (time < breakEnd) return; // still inside the current break
 
             // Current break has ended
@@ -188,16 +256,28 @@ export class MediaTailorSession {
             this._activeAdBreak = null;
         }
 
-        const candidate = this.trackingResponse.avails.find(
-            avail =>
-                time >= avail.startTimeInSeconds &&
-                time < avail.startTimeInSeconds + avail.durationInSeconds,
-        );
+        // For DASH live, MediaTailor delivers avails with durationInSeconds=0 until the break
+        // is active (first segment delivered). When duration is unknown we enter the break as soon
+        // as the playhead reaches startTimeInSeconds; liveUpdateTracking will fill in the real
+        // duration and the exit check above will fire AdBreakFinished when it arrives.
+        const candidate = this.trackingResponse.avails.find(avail => {
+            if (avail.durationInSeconds > 0) {
+                return time >= avail.startTimeInSeconds && time < avail.startTimeInSeconds + avail.durationInSeconds;
+            }
+            // Unknown duration: enter once playhead reaches start, but cap at 5 min to avoid
+            // matching stale unresolved breaks from far in the past.
+            return time >= avail.startTimeInSeconds && (time - avail.startTimeInSeconds) < 300;
+        });
         if (!candidate) return;
 
         // Skip over a break the viewer has already watched, if policy allows
         if (candidate.adBreakEndEventFired && this._policy.shouldAutomaticallySkipOverWatchedAdBreaks) {
-            this.player.seek(candidate.startTimeInSeconds + candidate.durationInSeconds);
+            const mtSkipTarget = candidate.startTimeInSeconds + candidate.durationInSeconds;
+            // For DASH live the seek target must be in absolute player time (Unix seconds)
+            const absoluteSkipTarget = this.dashAvailabilityStartUnix !== null
+                ? mtSkipTarget + this.dashAvailabilityStartUnix
+                : mtSkipTarget;
+            this.player.seek(absoluteSkipTarget);
             return;
         }
 
@@ -576,13 +656,13 @@ export class MtAd implements IMtAd {
         this.creativeId = ad.creativeId ?? null;
         this.creativeSequence = ad.creativeSequence ?? null;
         this.duration = ad.duration;
-        this.durationInSeconds = ad.durationInSeconds;
+        this.durationInSeconds = ad.durationInSeconds ?? 0;
         this.extensions = ad.extensions ?? [];
         this.icons = ad.icons ?? [];
         this.mediaFiles = ad.mediaFiles ?? [];
         this.skipOffset = ad.skipOffset ?? null;
         this.startTime = ad.startTime;
-        this.startTimeInSeconds = ad.startTimeInSeconds;
+        this.startTimeInSeconds = ad.startTimeInSeconds ?? 0;
         this.vastAdId = ad.vastAdId ?? null;
         for (const event of ad.trackingEvents) {
             this.trackingEvents.push(new TrackingEvent(event));
@@ -692,10 +772,20 @@ export class AdAvail implements IAdAvail {
         this.availId = avail.availId ?? '';
         this.availProgramDateTime = avail.availProgramDateTime ?? null;
         this.duration = avail.duration;
-        this.durationInSeconds = avail.durationInSeconds;
         this.meta = avail.meta;
         this.startTime = avail.startTime;
-        this.startTimeInSeconds = avail.startTimeInSeconds;
+        this.startTimeInSeconds = avail.startTimeInSeconds ?? 0;
+
+        // DASH live: MediaTailor sets durationInSeconds=0 until the break is fully active,
+        // but adMarkerDuration (ISO 8601 PT string) contains the real scheduled duration.
+        // Parse it so the time-window check in updateActiveAdBreak works from the start.
+        const rawDuration = avail.durationInSeconds ?? 0;
+        if (rawDuration === 0 && avail.adMarkerDuration) {
+            this.durationInSeconds = parsePTDuration(String(avail.adMarkerDuration));
+            Logger.log(`[AdAvail] Parsed adMarkerDuration "${avail.adMarkerDuration}" → ${this.durationInSeconds}s`);
+        } else {
+            this.durationInSeconds = rawDuration;
+        }
         this.nonLinearAdsList = avail.nonLinearAdsList; // TODO: create interface for nonLinearAdsList
         for (const event of avail.adBreakTrackingEvents) {
             this.adBreakTrackingEvents.push(new AdBreakTrackingEvent(event));
@@ -716,4 +806,17 @@ export class AdAvail implements IAdAvail {
             for (const e of matching) e.fireAdBreakTrackingEvent();
         }
     }
+}
+
+/**
+ * Parses an ISO 8601 duration string (PT[nH][nM][nS]) into seconds.
+ * e.g. "PT3M46S" → 226, "PT1H30M" → 5400
+ */
+function parsePTDuration(pt: string): number {
+    const match = pt.match(/^PT(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+    if (!match) return 0;
+    const hours   = parseFloat(match[1] ?? '0') || 0;
+    const minutes = parseFloat(match[2] ?? '0') || 0;
+    const seconds = parseFloat(match[3] ?? '0') || 0;
+    return hours * 3600 + minutes * 60 + seconds;
 }
