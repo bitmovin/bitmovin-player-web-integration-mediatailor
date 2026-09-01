@@ -21,56 +21,12 @@
             crossorigin="anonymous"
     ></script>
 
+    <!-- Single source of truth: the integration bundle ships the Bitmovin Player and UI
+         it was built against. Do NOT also load the player from the CDN — two player
+         runtimes at differing versions collide on the shared global module registry. -->
+    <link rel="stylesheet" href="bitmovinplayer-ui.css" />
     <script type="text/javascript" src="js/bitmovin-player-mediatailor.js"></script>
 
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-core.js"></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-polyfill.js"
-    ></script>
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-style.js"></script>
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-xml.js"></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-advertising-core.js"
-    ></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-advertising-bitmovin.js"
-    ></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-mserenderer.js"
-    ></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-engine-bitmovin.js"
-    ></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-container-mp4.js"
-    ></script>
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-hls.js"></script>
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-dash.js"></script>
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-abr.js"></script>
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-drm.js"></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-container-ts.js"
-    ></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-engine-native.js"
-    ></script>
-    <script
-            type="text/javascript"
-            src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-serviceworker-client.js"
-    ></script>
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-tizen.js"></script>
-    <script type="text/javascript" src="https://cdn.bitmovin.com/player/web/8/modules/bitmovinplayer-webos.js"></script>
-
-    <script type="text/javascript" src="//cdn.bitmovin.com/player/web/8/bitmovinplayer-ui.js"></script>
-    <link rel="stylesheet" href="//cdn.bitmovin.com/player/web/8/bitmovinplayer-ui.css" />
     <style>
         .player-wrapper {
             margin: 20px auto;
@@ -150,6 +106,9 @@
     </div>
 </div>
 <script type="text/javascript">
+    // Everything (Player, UI, integration) comes from this one bundle.
+    var mt = bitmovin.player.ads.mediatailor;
+
     var mtPlayer;
     var uiManager;
     var closePlayerButton = $('#option-close').parent();
@@ -196,9 +155,9 @@
         };
 
         if (customStreamTypeSelect.val() === '1') {
-            customSource.assetType = bitmovin.player.ads.mediatailor.MtAssetType.VOD;
+            customSource.assetType = mt.MtAssetType.VOD;
         } else if (customStreamTypeSelect.val() === '2') {
-            customSource.assetType = bitmovin.player.ads.mediatailor.MtAssetType.LINEAR;
+            customSource.assetType = mt.MtAssetType.LINEAR;
         }
 
         var drmRaw = $('#drm-config').val().trim();
@@ -220,9 +179,9 @@
         $(customStreamButton).removeClass('active');
     }
 
-    var vodSource = {
+    var vodSource2 = {
         title: 'VOD Stream',
-        assetType: bitmovin.player.ads.mediatailor.MtAssetType.VOD,
+        assetType: mt.MtAssetType.VOD,
         sessionInitUrl: "https://8e5c8b8ea1da48c1abfc4804f46d2c2d.mediatailor.us-east-2.amazonaws.com/v1/session/e43236c6c3da2f9adba09ce309a47dcec2045396/TestCampaign1_HLS/master.m3u8",
         // or sessionInitUrl can by type of MtSessionResponse
         //sessionInitUrl: {
@@ -231,9 +190,57 @@
         //}
     };
 
+    var vodSource = {
+      adsParams: {
+    "prof": "535279:versant_oneapp_samsungtv_vod_mt",
+    "csid": "versant_oneapp_ott_samsungtv_app_ondemand",
+    "caid": "E_VOD_9010002590",
+    "vdur": "1279",
+    "afid": "440066928",
+    "sfid": "24101803",
+    "_fw_vcid2": "046ffc16-2beb-494e-a48d-64490214f173",
+    "_fw_gdpr": "",
+    "_fw_gdpr_consent": "",
+    "_fw_us_privacy": "1YNN",
+    "gpp": "DBABzw~1YNN~BVQqAAAAAgA",
+    "gpp_sid": "6_7",
+    "_fw_atts": "",
+    "_fw_is_lat": "0",
+    "_fw_did": "tifa:7035d625-760c-480a-b437-8292109ef8e2",
+    "_fw_ae": "c6329f305187de4f1953972742a1fae2",
+    "_fw_app_bundle": "",
+    "_fw_app_store_url": "",
+    "_fw_player_width": "1920",
+    "_fw_player_height": "1080",
+    "rdid": "",
+    "_fw_nielsen_app_id": "P32DD2AB6-75D6-4B25-830B-E4C5CF7BC270"
+},
+      assetType: mt.MtAssetType.VOD,
+      sessionInitUrl: 'https://usanetwork.mt.asset.viewlift.com/v1/session/dfe581e0a446a1e548014078b2d81b62b917979d/usanetwork-vod-dash/Renditions/20260331/1774969497846_usanetwork_HD_TVE_TWOANDAHALFMEN_102_04022026_CUSTOM_CODEC_TS_DRM_DASH_DRM/dash/stream.mpd',
+      //sessionInitUrl: 'https://usanetwork.mt.linear.viewlift.com/v1/session/dfe581e0a446a1e548014078b2d81b62b917979d/usanetwork-linear-oneapp-dash-primary-v1/Content/Channel/4e41f6af-4b86-2aac-c351-c1250b14b344/DASH_ENC/master_5m.mpd',
+      //dash: 'https://usanetwork.mt.asset.viewlift.com/v1/dash/dfe581e0a446a1e548014078b2d81b62b917979d/usanetwork-vod-dash/Renditions/20260413/1776120837422_usanetwork_HD_TVE_LAWORDERSV_1510_04162026_CUSTOM_CODEC_TS_DRM_DASH_DRM/dash/stream.mpd?aws.sessionId=82ae6be6-1b2d-4eba-a6f5-c49c17ea4e88',
+      //poster: 'https://usanetwork.asset.viewlift.com/images/2026/04/16/HD_TVE_LAWORDERSV_1510_04162026_thumb_4.jpg',
+      drm: {
+    "widevine": {
+        "LA_URL": "https://usanetwork.api.viewlift.com/v1/license/widevine/acquire",
+        "headers": {
+            "X-AxDRM-Message": "usanetwork|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNVc2VySWQiOiIiLCJhc3NldEtleSI6ImQxNjA2YzA0LTgzZDAtNDA5My1iN2U4LWE5YzI1MGI0NjMxMyIsImNsaWVudElwIjoiNTAuMTk0LjEzMi4yOSIsImNvbnRlbnRJZCI6IjYxOGIxZTliLTMzYjAtNDFhYy1iNGI0LTYxYzk1OTMxOTg2YyIsImNvdW50cnlDb2RlIjoiVVMiLCJkZXZpY2VJZCI6IjU4YzNjMmIyLTFhOGItNDA2NS1hYjcwLTIyYmEyMzljZDkwNyIsImRldmljZVR5cGUiOiJzbWFydF90dl9zYW1zdW5nIiwiZHJtS2V5Um90YXRpb25FbmFibGVkIjpmYWxzZSwiZXhwIjoxNzc3NTQyNzQ3LCJoZGNwIjoiIiwiaWF0IjoxNzc3NDk5NTQ3LCJpc0xpdmVTdHJlYW0iOmZhbHNlLCJtZWRpYUxpdmVJZCI6IiIsIm1vbmV0aXphdGlvbk1vZGVscyI6W3sidHlwZSI6IlRWRSJ9XSwic2l0ZSI6InVzYW5ldHdvcmsiLCJzbCI6IiIsInRlZSI6IiIsInRva2VuSWQiOiJhOTAwYmQ0YS05NGZmLTQxYzctYmViZS01MmIxNzM2NjUyZDIiLCJ1c2VySWQiOiIwNDZmZmMxNi0yYmViLTQ5NGUtYTQ4ZC02NDQ5MDIxNGYxNzMifQ.tFdx3WOSs1BwCTO1kwllkXm4qbhThXqbNNfwXbUxatU"
+        }
+    },
+    "playready": {
+        "LA_URL": "https://usanetwork.api.viewlift.com/v1/license/playready/acquire",
+        "headers": {
+            "X-AxDRM-Message": "usanetwork|eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhbm9ueW1vdXNVc2VySWQiOiIiLCJhc3NldEtleSI6ImQxNjA2YzA0LTgzZDAtNDA5My1iN2U4LWE5YzI1MGI0NjMxMyIsImNsaWVudElwIjoiNTAuMTk0LjEzMi4yOSIsImNvbnRlbnRJZCI6IjYxOGIxZTliLTMzYjAtNDFhYy1iNGI0LTYxYzk1OTMxOTg2YyIsImNvdW50cnlDb2RlIjoiVVMiLCJkZXZpY2VJZCI6IjU4YzNjMmIyLTFhOGItNDA2NS1hYjcwLTIyYmEyMzljZDkwNyIsImRldmljZVR5cGUiOiJzbWFydF90dl9zYW1zdW5nIiwiZHJtS2V5Um90YXRpb25FbmFibGVkIjpmYWxzZSwiZXhwIjoxNzc3NTQyNzQ3LCJoZGNwIjoiIiwiaWF0IjoxNzc3NDk5NTQ3LCJpc0xpdmVTdHJlYW0iOmZhbHNlLCJtZWRpYUxpdmVJZCI6IiIsIm1vbmV0aXphdGlvbk1vZGVscyI6W3sidHlwZSI6IlRWRSJ9XSwic2l0ZSI6InVzYW5ldHdvcmsiLCJzbCI6IiIsInRlZSI6IiIsInRva2VuSWQiOiI2MzUwMmU5OS04NTQ4LTQ5MTYtYTFlNy0xNDJmYzc3ODY0YzAiLCJ1c2VySWQiOiIwNDZmZmMxNi0yYmViLTQ5NGUtYTQ4ZC02NDQ5MDIxNGYxNzMifQ.QHRghDdahfsx0dL4w8M435VofKMo7ipFlNTW9dt6lAc"
+        },
+        "utf8message": true,
+        "plaintextChallenge": true
+    }
+}
+  }
+
     var linearSource = {
         title: 'Linear Stream',
-        assetType: bitmovin.player.ads.mediatailor.MtAssetType.LINEAR,
+        assetType: mt.MtAssetType.LINEAR,
         sessionInitUrl: 'https://ab920977096d419ca8c9c3895084dacf.mediatailor.us-east-2.amazonaws.com/v1/session/e43236c6c3da2f9adba09ce309a47dcec2045396/LiveCampaign/index.m3u8'
     }
 
@@ -280,33 +287,25 @@
     var unregisterServiceWorkersPromise = unregisterAllServiceWorker();
 
     unregisterServiceWorkersPromise.then(() => {
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['polyfill'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['style'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['xml'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['advertising-core'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['advertising-bitmovin'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['engine-bitmovin'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['mserenderer'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['hls'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['dash'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['abr'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['drm'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['container-ts'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['container-mp4'].default);
-        bitmovin.player.core.Player.addModule(window.bitmovin.player['engine-native'].default);
+        // Player and UI both come from the integration bundle, so their versions
+        // can never drift apart. This is the all-modules build — no addModule calls needed.
+        var Player = mt.Player;
+        var UIFactory = mt.UIFactory;
+
+        console.log('Bitmovin Player version:', Player.version);
 
         var mtConfig = {
             debug: true,
         }
 
         var playerContainer = document.getElementById('player');
-        mtPlayer = new bitmovin.player.ads.mediatailor.BitmovinMediaTailorPlayer(
-            bitmovin.player.core.Player,
+        mtPlayer = new mt.BitmovinMediaTailorPlayer(
+            Player,
             playerContainer,
             conf,
             mtConfig
         )
-        uiManager = new bitmovin.playerui.UIFactory.buildUI(mtPlayer);
+        uiManager = UIFactory.buildDefaultUI(mtPlayer);
 
         mtPlayer.on('error', function(e){
             console.log(e);

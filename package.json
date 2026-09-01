@@ -7,7 +7,7 @@
     "prepublishOnly": "npm run clean; npm run lint && npm run build",
     "build": "npm run copyStaticToDist && webpack --config webpack.prod.js",
     "start": "npm run copyStaticToDist && webpack serve --open --config webpack.dev.js",
-    "copyStaticToDist": "mkdir -p dist && cp src/index.html dist/ && cp src/sw.js dist/",
+    "copyStaticToDist": "mkdir -p dist && cp src/index.html dist/ && cp src/sw.js dist/ && cp node_modules/bitmovin-player-ui/dist/css/bitmovinplayer-ui.css dist/",
     "lint": "eslint --quiet src/ && kacl lint",
     "format": "prettier --write src/",
     "clean": "rm -R ./dist",
